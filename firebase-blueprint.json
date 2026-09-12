@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "UserDoc": {
+      "title": "User Document",
+      "description": "Stores user-specific organization settings, custom fields, and templates",
+      "type": "object",
+      "properties": {
+        "organization": { "type": "object" },
+        "customFields": { "type": "array" },
+        "templates": { "type": "array" },
+        "activeTemplateId": { "type": "string" }
+      },
+      "required": ["organization", "customFields", "templates"]
+    },
+    "Member": {
+      "title": "Member Document",
+      "description": "Stores a single member's data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "memberId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "designation": { "type": "string" }
+      },
+      "required": ["id"]
+    },
+    "Donation": {
+      "title": "Donation Document",
+      "description": "Public and direct donation records with approval tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "receiptNumber": { "type": "string" },
+        "donorName": { "type": "string" },
+        "donorEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "receiptNumber", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserDoc" },
+      "description": "User's main settings document"
+    },
+    "/users/{userId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/Member" },
+      "description": "Member records for the user's organization"
+    },
+    "/donations/{donationId}": {
+      "schema": { "$ref": "#/entities/Donation" },
+      "description": "Public donations and approval ledger"
+    }
+  }
+}
