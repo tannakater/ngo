@@ -15,32 +15,32 @@ export function About() {
 
   const coreValues = [
     {
-      title: 'Radical Transparency',
-      desc: 'Every single dollar donated is accounted for with independent financial audits and open governance reports.',
+      title: 'Humanity & Compassion',
+      desc: 'We put people, dignity, and compassion at the heart of everything we do.',
       icon: Shield
     },
     {
-      title: 'Community-Led Impact',
-      desc: 'We do not impose external solutions. We empower local grassroots leaders to design sustainable initiatives.',
+      title: 'Integrity & Transparency',
+      desc: 'We strive to work honestly, responsibly, and transparently in every initiative.',
       icon: Users
     },
     {
-      title: 'Uncompromising Integrity',
-      desc: 'All field volunteers, staff, and representatives carry verified digital credentials for absolute accountability.',
+      title: 'Equality & Responsibility',
+      desc: 'We believe everyone deserves dignity, equal opportunity, and responsible support.',
       icon: Award
     },
     {
-      title: 'Sustainable Stewardship',
-      desc: 'Programs are engineered for long-term ecological balance and durable self-reliance rather than temporary fixes.',
+      title: 'Unity & Community',
+      desc: 'We bring volunteers and communities together to create meaningful and sustainable social impact.',
       icon: Compass
     }
   ];
 
   const milestones = [
-    { year: '2020', title: 'Founded with 15 Volunteers', desc: 'Mobilized emergency food kits and hygiene relief in response to coastal disasters.' },
-    { year: '2022', title: 'Official NGO Bureau Accreditation', desc: 'Received government accreditation and launched the Clean Water & Solar initiatives.' },
-    { year: '2024', title: 'Digital ID & Verification System', desc: 'Pioneered secure verifiable digital credentials for all relief volunteers and field officers.' },
-    { year: '2026', title: '50,000+ Lives Transformed', desc: 'Expanded across 18 regional hubs, funding 48 active community empowerment projects.' }
+    { year: '2020', title: 'Education & Volunteerism', desc: 'Supporting education and encouraging people to contribute their time, skills, and effort through volunteering.' },
+    { year: '2022', title: 'Food & Humanitarian Support', desc: 'Providing essential assistance and standing beside people during difficult circumstances.' },
+    { year: '2024', title: 'Healthcare & Awareness', desc: 'Promoting health awareness and supporting community healthcare initiatives.' },
+    { year: '2026', title: 'Community Development', desc: 'Working with communities to encourage positive, inclusive, and sustainable development.' }
   ];
 
   return (
@@ -50,13 +50,13 @@ export function About() {
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <span className="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-6">
-            <Sparkles className="w-3.5 h-3.5" /> Our Purpose & Heritage
+            <Sparkles className="w-3.5 h-3.5" /> Our Purpose
           </span>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-6 max-w-4xl mx-auto leading-tight">
-            Restoring dignity, equity, and resilience for every human life.
+            Serving People. Supporting Communities. Creating Change.
           </h1>
           <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed mb-10">
-            {organization.name} is an independent, humanitarian non-governmental organization dedicated to sustainable grassroots community empowerment, emergency relief, and educational justice.
+            {organization.name} is a volunteer-driven social and humanitarian organization dedicated to supporting underprivileged and vulnerable communities through meaningful social and humanitarian initiatives.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link 
@@ -85,20 +85,20 @@ export function About() {
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Mission</h2>
               <p className="text-slate-600 leading-relaxed text-base">
-                {organization.mission || 'To mobilize swift, equitable resources and certified volunteer networks to combat poverty, provide disaster relief, build robust water and health infrastructure, and ensure quality educational pathways for historically underserved communities.'}
+                {organization.mission || 'To identify genuine community needs and create meaningful impact through volunteering, education, food support, healthcare initiatives, humanitarian assistance, and community development.'}
               </p>
               <ul className="mt-6 space-y-3">
                 <li className="flex items-center gap-3 text-sm text-slate-700 font-medium">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  Direct, zero-leakage aid distribution to verified recipients
+                  Support underprivileged and vulnerable communities
                 </li>
                 <li className="flex items-center gap-3 text-sm text-slate-700 font-medium">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  100% cloud-recorded transparent donor tracking
+                  Promote education and learning opportunities
                 </li>
                 <li className="flex items-center gap-3 text-sm text-slate-700 font-medium">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  Certified identity validation for all field operators
+                  Provide food and essential humanitarian support
                 </li>
               </ul>
             </div>
@@ -109,16 +109,16 @@ export function About() {
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Vision</h2>
               <p className="text-slate-600 leading-relaxed text-base">
-                {organization.vision || 'A world where every individual, regardless of geographic vulnerability or economic background, enjoys clean water, quality education, resilient healthcare, and the security of a compassionate, organized community safety net.'}
+                {organization.vision || 'To build an inclusive society where every individual can live with dignity, equal opportunity, and hope.'}
               </p>
               <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4 text-center">
                 <div className="p-3 bg-slate-50 rounded-xl">
                   <div className="text-2xl font-extrabold text-slate-900">{stats.projectsCompleted}+</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">Completed Projects</div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">Community Initiatives</div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl">
                   <div className="text-2xl font-extrabold text-emerald-600">{stats.peopleHelped}</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">Beneficiaries Reached</div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">People Supported</div>
                 </div>
               </div>
             </div>
@@ -130,8 +130,8 @@ export function About() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2 block">Guiding Principles</span>
-            <h2 className="text-3xl font-extrabold text-slate-900">What Drives Our Work Every Day</h2>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2 block">Our Values</span>
+            <h2 className="text-3xl font-extrabold text-slate-900">What Guides Our Work</h2>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -155,8 +155,8 @@ export function About() {
       <section className="py-20 bg-slate-900 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2 block">Our Track Record</span>
-            <h2 className="text-3xl font-extrabold">Milestones of Hope & Service</h2>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2 block">Our Work</span>
+            <h2 className="text-3xl font-extrabold">Areas of Service</h2>
           </div>
 
           <div className="space-y-8 relative before:absolute before:inset-0 before:left-8 before:w-0.5 before:bg-slate-800 md:before:left-1/2 md:before:-ml-px">
@@ -181,9 +181,9 @@ export function About() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2 block">Executive Governance</span>
-            <h2 className="text-3xl font-extrabold text-slate-900">Dedicated Leadership Team</h2>
-            <p className="text-slate-600 text-sm mt-3">Our experienced board and program directors ensure rigorous compliance, safety, and humanitarian efficacy.</p>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2 block">Our People</span>
+            <h2 className="text-3xl font-extrabold text-slate-900">Dedicated Volunteer Team</h2>
+            <p className="text-slate-600 text-sm mt-3">Our volunteers work together with compassion, responsibility, and dedication to serve people and strengthen communities.</p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -209,16 +209,16 @@ export function About() {
       {/* Call to Action */}
       <section className="py-16 bg-emerald-600 text-white text-center">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-3xl font-extrabold mb-4">Be Part of the Global Mission</h2>
+          <h2 className="text-3xl font-extrabold mb-4">Together, We Can.</h2>
           <p className="text-emerald-100 text-base max-w-2xl mx-auto mb-8">
-            Whether you donate, register as a volunteer, or sponsor an entire water filtration project, your support directly changes lives.
+            Join us in supporting people, strengthening communities, and creating meaningful positive change.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/donate" className="bg-white text-emerald-800 hover:bg-emerald-50 px-8 py-3.5 rounded-full font-bold text-base transition-colors shadow-md">
-              Donate Today
+              Support Our Work
             </Link>
             <Link to="/volunteer" className="bg-emerald-700 hover:bg-emerald-800 text-white border border-emerald-500 px-8 py-3.5 rounded-full font-bold text-base transition-colors">
-              Register as Volunteer
+              Join as a Volunteer
             </Link>
           </div>
         </div>
