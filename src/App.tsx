@@ -14,7 +14,7 @@ import { Volunteer } from './pages/public/Volunteer';
 import { Contact } from './pages/public/Contact';
 import { Transparency } from './pages/public/Transparency';
 
-// Admin Pages (existing from IDForge)
+// Admin Pages (existing from)
 import { Dashboard } from './pages/Dashboard';
 import { Members } from './pages/Members';
 import { Builder } from './pages/Builder';
