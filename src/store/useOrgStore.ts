@@ -229,66 +229,6 @@ const defaultTemplates: CardTemplate[] = [
   }
 ];
 
-const ORG_STORAGE_KEY = 'idforge_org_storage_v1';
-
-const sanitizeForFirestore = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
-
-const loadLocalOrgData = () => {
-  try {
-    const saved = localStorage.getItem(ORG_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const loadedOrg = { ...defaultOrganization, ...(parsed.organization || {}) };
-      if (!loadedOrg.logoUrl || loadedOrg.logoUrl.includes("photo-1582213782179") || loadedOrg.logoUrl.includes("data:image/svg+xml")) {
-        loadedOrg.logoUrl = DEFAULT_OFFICIAL_LOGO_SVG;
-      }
-      if (loadedOrg.noticeText && /[\u0980-\u09FF]/.test(loadedOrg.noticeText)) {
-        loadedOrg.noticeText = 'If found, please return this card to the organization office or contact support.';
-      }
-      let rawLoadedMembers: Member[] = parsed.members || initialSeedMembers;
-      // Deduplicate members by id to fix any previously corrupted local storage
-      const uniqueMembersMap = new Map<string, Member>();
-      rawLoadedMembers.forEach(m => uniqueMembersMap.set(m.id, m));
-      let loadedMembers: Member[] = Array.from(uniqueMembersMap.values());
-      return {
-        organization: loadedOrg,
-        members: loadedMembers,
-        customFields: parsed.customFields || [],
-        templates: parsed.templates || defaultTemplates,
-        activeTemplateId: parsed.activeTemplateId || 'tpl-bd-foundation',
-        webUsers: parsed.webUsers || []
-      };
-    }
-  } catch (e) {
-    console.error('Failed to load local org storage', e);
-  }
-  return {
-    organization: defaultOrganization,
-    members: initialSeedMembers,
-    customFields: [],
-    templates: defaultTemplates,
-    activeTemplateId: 'tpl-bd-foundation',
-    webUsers: []
-  };
-};
-
-const saveLocalOrgData = (state: Partial<OrgState>) => {
-  try {
-    const current = loadLocalOrgData();
-    const toSave = {
-      organization: state.organization || current.organization,
-      members: state.members || current.members,
-      customFields: state.customFields || current.customFields,
-      templates: state.templates || current.templates,
-      activeTemplateId: state.activeTemplateId !== undefined ? state.activeTemplateId : current.activeTemplateId,
-    };
-    localStorage.setItem(ORG_STORAGE_KEY, JSON.stringify(toSave));
-  } catch (e) {
-    console.error('Failed to save local org storage', e);
-  }
-};
-
-const localInitial = loadLocalOrgData();
 
 let unsubUser: (() => void) | null = null;
 let unsubMembers: (() => void) | null = null;
@@ -303,17 +243,17 @@ const mergeAndSetMembers = (set: any) => {
   localPrivateMembers.forEach(m => allMembersMap.set(m.id, m));
   const merged = Array.from(allMembersMap.values());
   set({ members: merged });
-  saveLocalOrgData({ members: merged });
+  
 };
 
 export const useOrgStore = create<OrgState>((set, get) => ({
   userId: null,
-  organization: localInitial.organization,
-  members: localInitial.members,
-  customFields: localInitial.customFields,
-  templates: localInitial.templates,
-  activeTemplateId: localInitial.activeTemplateId,
-  webUsers: localInitial.webUsers || [],
+  organization: defaultOrganization,
+  members: initialSeedMembers,
+  customFields: [],
+  templates: defaultTemplates,
+  activeTemplateId: "tpl-bd-foundation",
+  webUsers: [],
 
   syncWithFirebase: async (userId: string) => {
     let workspaceId = userId;
@@ -446,7 +386,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, organization } = get();
     const newOrg = { ...organization, ...orgUpdate };
     set({ organization: newOrg });
-    saveLocalOrgData({ organization: newOrg });
+    
     
     if (userId) {
       try {
@@ -475,7 +415,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     
     const updatedMembers = [newMember, ...members];
     set({ members: updatedMembers });
-    saveLocalOrgData({ ...get(), members: updatedMembers });
+    
 
     if (userId) {
       try {
@@ -496,7 +436,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, members } = get();
     const newMembers = members.map(m => m.id === id ? { ...m, ...memberUpdate } : m);
     set({ members: newMembers });
-    saveLocalOrgData({ ...get(), members: newMembers });
+    
     
     if (userId) {
       try {
@@ -523,7 +463,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, members } = get();
     const updatedMembers = members.filter(m => m.id !== id);
     set({ members: updatedMembers });
-    saveLocalOrgData({ ...get(), members: updatedMembers });
+    
 
     if (userId) {
       try {
@@ -543,7 +483,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, customFields } = get();
     const newFields = [...customFields, { ...field, id: uuidv4() }];
     set({ customFields: newFields });
-    saveLocalOrgData({ ...get(), customFields: newFields });
+    
     
     if (userId) {
       try {
@@ -560,7 +500,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, customFields } = get();
     const newFields = customFields.filter(f => f.id !== id);
     set({ customFields: newFields });
-    saveLocalOrgData({ ...get(), customFields: newFields });
+    
     
     if (userId) {
       try {
@@ -577,7 +517,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, templates } = get();
     const newTemplates = [...templates, { ...template, id: uuidv4() }];
     set({ templates: newTemplates });
-    saveLocalOrgData({ ...get(), templates: newTemplates });
+    
     
     if (userId) {
       try {
@@ -594,7 +534,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { userId, templates } = get();
     const newTemplates = templates.map(t => t.id === id ? { ...t, ...templateUpdate } : t);
     set({ templates: newTemplates });
-    saveLocalOrgData({ ...get(), templates: newTemplates });
+    
     
     if (userId) {
       try {
@@ -615,7 +555,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const newTemplates = templates.filter(t => t.id !== id);
     const newActiveId = activeTemplateId === id ? newTemplates[0].id : activeTemplateId;
     set({ templates: newTemplates, activeTemplateId: newActiveId });
-    saveLocalOrgData({ ...get(), templates: newTemplates, activeTemplateId: newActiveId });
+    
 
     if (userId) {
       try {
@@ -642,7 +582,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
     const newTemplates = [...templates, newTemplate];
     set({ templates: newTemplates });
-    saveLocalOrgData({ ...get(), templates: newTemplates });
+    
 
     if (userId) {
       try {
@@ -658,7 +598,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   setActiveTemplate: async (id) => {
     const { userId } = get();
     set({ activeTemplateId: id });
-    saveLocalOrgData({ ...get(), activeTemplateId: id });
+    
     
     if (userId) {
       try {
@@ -680,7 +620,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     };
     const updated = [...webUsers, newUser];
     set({ webUsers: updated });
-    saveLocalOrgData({ ...get(), webUsers: updated });
+    
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
@@ -692,7 +632,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { webUsers, userId } = get();
     const updated = webUsers.map(u => u.id === id ? { ...u, ...updates } : u);
     set({ webUsers: updated });
-    saveLocalOrgData({ ...get(), webUsers: updated });
+    
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
@@ -704,7 +644,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { webUsers, userId } = get();
     const updated = webUsers.filter(u => u.id !== id);
     set({ webUsers: updated });
-    saveLocalOrgData({ ...get(), webUsers: updated });
+    
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));

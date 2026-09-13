@@ -298,7 +298,7 @@ export function DriveFolderManager() {
         <div className="p-4 rounded-lg bg-blue-50/70 border border-blue-100 text-xs text-blue-800 flex items-start gap-3">
           <CheckCircle2 className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
           <div className="leading-relaxed">
-            <strong>Automated Routing Active:</strong> Whenever you upload a member or volunteer photo, generate an ID card, or upload event media, IDForge automatically detects the asset type and files it directly into <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">NGO/{'<subfolder>'}</code>. No manual organization required!
+            <strong>Automated Routing Active:</strong> Whenever you upload a member or volunteer photo, generate an ID card, or upload event media, DakSeba Foundation automatically detects the asset type and files it directly into <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">NGO/{'<subfolder>'}</code>. No manual organization required!
           </div>
         </div>
       </div>

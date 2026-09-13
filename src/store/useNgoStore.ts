@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 
 export interface Project {
   id: string;
@@ -123,79 +123,70 @@ export interface NgoState {
     projectsCompleted: string;
     fundsRaised: string;
   };
-
-  // Actions
-  addProject: (project: Omit<Project, 'id'>) => void;
-  updateProject: (id: string, project: Partial<Project>) => void;
-  deleteProject: (id: string) => void;
-
-  addCampaign: (campaign: Omit<Campaign, 'id'>) => void;
-  updateCampaign: (id: string, campaign: Partial<Campaign>) => void;
-  deleteCampaign: (id: string) => void;
-
-  addDonation: (donation: Omit<Donation, 'id' | 'receiptNumber' | 'createdAt'>) => string;
-  updateDonation: (id: string, donation: Partial<Donation>) => void;
-  deleteDonation: (id: string) => void;
-  approveDonation: (id: string, approver?: string | { name: string; role?: string }) => Promise<Donation | null>;
-
-  addEvent: (event: Omit<Event, 'id'>) => void;
-  updateEvent: (id: string, event: Partial<Event>) => void;
-  deleteEvent: (id: string) => void;
-
-  addNews: (newsItem: Omit<News, 'id'>) => void;
-  updateNews: (id: string, newsItem: Partial<News>) => void;
-  deleteNews: (id: string) => void;
-
-  addMessage: (msg: Omit<ContactMessage, 'id' | 'isRead' | 'createdAt'>) => void;
-  markMessageRead: (id: string) => void;
-  deleteMessage: (id: string) => void;
-
-  addDocument: (doc: Omit<TransparencyDoc, 'id' | 'uploadedAt'>) => void;
-  updateDocument: (id: string, doc: Partial<TransparencyDoc>) => void;
-  deleteDocument: (id: string) => void;
-
-  updateStats: (newStats: Partial<NgoState['stats']>) => void;
+  addProject: (project: Omit<Project, 'id'>) => Promise<void>;
+  updateProject: (id: string, project: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  addCampaign: (campaign: Omit<Campaign, 'id'>) => Promise<void>;
+  updateCampaign: (id: string, campaign: Partial<Campaign>) => Promise<void>;
+  deleteCampaign: (id: string) => Promise<void>;
+  addVolunteer: (volunteer: Omit<Volunteer, 'id'>) => Promise<void>;
+  updateVolunteer: (id: string, volunteer: Partial<Volunteer>) => Promise<void>;
+  deleteVolunteer: (id: string) => Promise<void>;
+  addEvent: (event: Omit<Event, 'id'>) => Promise<void>;
+  updateEvent: (id: string, event: Partial<Event>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
+  addNews: (news: Omit<News, 'id'>) => Promise<void>;
+  updateNews: (id: string, news: Partial<News>) => Promise<void>;
+  deleteNews: (id: string) => Promise<void>;
+  addDonation: (donation: Omit<Donation, 'id' | 'receiptNumber' | 'createdAt'>) => Promise<Donation>;
+  updateDonation: (id: string, donation: Partial<Donation>) => Promise<void>;
+  deleteDonation: (id: string) => Promise<void>;
+  addMessage: (message: Omit<ContactMessage, 'id' | 'isRead' | 'createdAt'>) => Promise<void>;
+  markMessageRead: (id: string) => Promise<void>;
+  deleteMessage: (id: string) => Promise<void>;
+  addDocument: (doc: Omit<TransparencyDoc, 'id' | 'uploadedAt'>) => Promise<void>;
+  updateDocument: (id: string, doc: Partial<TransparencyDoc>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  updateStats: (stats: Partial<NgoState['stats']>) => Promise<void>;
 }
-
-const STORAGE_KEY = 'ngo_state_storage_v1';
 
 const initialProjects: Project[] = [
   {
     id: 'proj-1',
-    title: 'Clean Water Initiative',
+    title: 'Clean Drinking Water Solar Filtration Units',
     category: 'Water & Sanitation',
-    description: 'Providing safe drinking water, deep tube-wells, and filtration systems to 15 rural communities.',
-    coverImage: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
-    location: 'Rural Coastal Districts',
-    progress: 75,
+    description: 'Installing solar-powered deep tube wells and UV purification kiosks in saline-prone coastal villages.',
+    coverImage: 'https://images.unsplash.com/photo-1541888946425-d0fbb18f86f6?w=800&q=80',
+    location: 'Satkhira & Khulna Coastal Belt',
+    progress: 85,
     status: 'Active',
-    budget: 50000
+    budget: 45000
   },
   {
     id: 'proj-2',
-    title: 'Education for Every Child',
+    title: 'Rural Community School & Computer Lab',
     category: 'Education',
-    description: 'Renovating village schools, distributing free backpacks, books, and tablets for underprivileged students.',
-    coverImage: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80',
-    location: 'Northern Division',
-    progress: 40,
+    description: 'Constructing free primary education centers equipped with solar power and digital learning tools.',
+    coverImage: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80',
+    location: 'Sylhet Rural District',
+    progress: 60,
     status: 'Active',
-    budget: 120000
+    budget: 32000
   },
   {
     id: 'proj-3',
-    title: 'Mobile Health Clinics',
+    title: 'Mobile Emergency Medical & Dental Clinics',
     category: 'Healthcare',
-    description: 'Deploying equipped ambulance clinics with volunteer doctors providing free medicine and general checkups.',
+    description: 'Dispatching fully equipped ambulances and volunteer doctors to remote villages lacking healthcare access.',
     coverImage: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&q=80',
-    location: 'Riverine Char Areas',
-    progress: 90,
-    status: 'Active',
-    budget: 85000
+    location: 'Northern Char Islands',
+    progress: 100,
+    status: 'Completed',
+    budget: 50000
   },
   {
     id: 'proj-4',
-    title: 'Reforestation & Mangrove Restoration',
+    title: 'Afforestation & Mangrove Belt Protection',
     category: 'Environment',
     description: 'Planting 100,000 mangrove saplings to protect coastal embankments from cyclone storm surges.',
     coverImage: 'https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=800&q=80',
@@ -417,69 +408,8 @@ const initialDocuments: TransparencyDoc[] = [
   }
 ];
 
-// Helper to load persisted state safely
-const loadPersistedState = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        projects: parsed.projects || initialProjects,
-        campaigns: parsed.campaigns || initialCampaigns,
-        volunteers: parsed.volunteers || initialVolunteers,
-        events: parsed.events || initialEvents,
-        news: parsed.news || initialNews,
-        donations: parsed.donations || initialDonations,
-        messages: parsed.messages || initialMessages,
-        documents: parsed.documents || initialDocuments,
-        stats: parsed.stats || {
-          peopleHelped: "52,400+",
-          volunteers: "1,250+",
-          projectsCompleted: "48",
-          fundsRaised: "$2.65M",
-        }
-      };
-    }
-  } catch (e) {
-    console.error('Failed to load persisted NGO state', e);
-  }
-  return {
-    projects: initialProjects,
-    campaigns: initialCampaigns,
-    volunteers: initialVolunteers,
-    events: initialEvents,
-    news: initialNews,
-    donations: initialDonations,
-    messages: initialMessages,
-    documents: initialDocuments,
-    stats: {
-      peopleHelped: "52,400+",
-      volunteers: "1,250+",
-      projectsCompleted: "48",
-      fundsRaised: "$2.65M",
-    }
-  };
-};
+const sanitizeForFirestore = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
 
-const saveToLocalStorage = (state: Partial<NgoState>) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      projects: state.projects,
-      campaigns: state.campaigns,
-      volunteers: state.volunteers,
-      events: state.events,
-      news: state.news,
-      donations: state.donations,
-      messages: state.messages,
-      documents: state.documents,
-      stats: state.stats
-    }));
-  } catch (e) {
-    console.error('Failed to save NGO state to localStorage', e);
-  }
-};
-
-// Helper function to reliably match a campaign by ID or Name (case-insensitive & trimmed)
 export const isCampaignMatch = (camp: Campaign, campaignId?: string, campaignName?: string): boolean => {
   if (!campaignId && !campaignName) return false;
   const cId = (camp.id || '').trim().toLowerCase();
@@ -495,50 +425,188 @@ export const isCampaignMatch = (camp: Campaign, campaignId?: string, campaignNam
   return false;
 };
 
-const initialState = loadPersistedState();
-
 export const useNgoStore = create<NgoState>((set, get) => ({
-  ...initialState,
+  projects: initialProjects,
+  campaigns: initialCampaigns,
+  volunteers: initialVolunteers,
+  events: initialEvents,
+  news: initialNews,
+  donations: initialDonations,
+  messages: initialMessages,
+  documents: initialDocuments,
+  stats: {
+    peopleHelped: "52,400+",
+    volunteers: "1,250+",
+    projectsCompleted: "48",
+    fundsRaised: "$2.65M",
+  },
 
-  addProject: (projectData) => {
-    const newProject: Project = { ...projectData, id: uuidv4() };
+  addProject: async (projectData) => {
+    const id = uuidv4();
+    const newProject: Project = { ...projectData, id };
     const updated = [newProject, ...get().projects];
     set({ projects: updated });
-    saveToLocalStorage({ ...get(), projects: updated });
+    try {
+      await setDoc(doc(db, 'ngo_projects', id), sanitizeForFirestore(newProject));
+    } catch (e) {
+      console.warn('Could not add project to firestore:', e);
+    }
   },
-
-  updateProject: (id, projectUpdate) => {
+  updateProject: async (id, projectUpdate) => {
     const updated = get().projects.map(p => p.id === id ? { ...p, ...projectUpdate } : p);
     set({ projects: updated });
-    saveToLocalStorage({ ...get(), projects: updated });
+    try {
+      const proj = updated.find(p => p.id === id);
+      if (proj) {
+        await updateDoc(doc(db, 'ngo_projects', id), sanitizeForFirestore(proj));
+      }
+    } catch (e) {
+      console.warn('Could not update project on firestore:', e);
+    }
   },
-
-  deleteProject: (id) => {
+  deleteProject: async (id) => {
     const updated = get().projects.filter(p => p.id !== id);
     set({ projects: updated });
-    saveToLocalStorage({ ...get(), projects: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_projects', id));
+    } catch (e) {
+      console.warn('Could not delete project on firestore:', e);
+    }
   },
 
-  addCampaign: (campaignData) => {
-    const newCampaign: Campaign = { ...campaignData, id: uuidv4(), donorsCount: 0 };
+  addCampaign: async (campaignData) => {
+    const id = uuidv4();
+    const newCampaign: Campaign = { ...campaignData, id, donorsCount: 0 };
     const updated = [newCampaign, ...get().campaigns];
     set({ campaigns: updated });
-    saveToLocalStorage({ ...get(), campaigns: updated });
+    try {
+      await setDoc(doc(db, 'ngo_campaigns', id), sanitizeForFirestore(newCampaign));
+    } catch (e) {
+      console.warn('Could not add campaign to firestore:', e);
+    }
   },
-
-  updateCampaign: (id, campaignUpdate) => {
+  updateCampaign: async (id, campaignUpdate) => {
     const updated = get().campaigns.map(c => c.id === id ? { ...c, ...campaignUpdate } : c);
     set({ campaigns: updated });
-    saveToLocalStorage({ ...get(), campaigns: updated });
+    try {
+      const camp = updated.find(c => c.id === id);
+      if (camp) {
+        await updateDoc(doc(db, 'ngo_campaigns', id), sanitizeForFirestore(camp));
+      }
+    } catch (e) {
+      console.warn('Could not update campaign on firestore:', e);
+    }
   },
-
-  deleteCampaign: (id) => {
+  deleteCampaign: async (id) => {
     const updated = get().campaigns.filter(c => c.id !== id);
     set({ campaigns: updated });
-    saveToLocalStorage({ ...get(), campaigns: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_campaigns', id));
+    } catch (e) {
+      console.warn('Could not delete campaign on firestore:', e);
+    }
   },
 
-  addDonation: (donationData) => {
+  addVolunteer: async (volunteerData) => {
+    const id = uuidv4();
+    const newVolunteer: Volunteer = { ...volunteerData, id };
+    const updated = [newVolunteer, ...get().volunteers];
+    set({ volunteers: updated });
+    try {
+      await setDoc(doc(db, 'ngo_volunteers', id), sanitizeForFirestore(newVolunteer));
+    } catch (e) {
+      console.warn('Could not add volunteer to firestore:', e);
+    }
+  },
+  updateVolunteer: async (id, volunteerUpdate) => {
+    const updated = get().volunteers.map(v => v.id === id ? { ...v, ...volunteerUpdate } : v);
+    set({ volunteers: updated });
+    try {
+      const vol = updated.find(v => v.id === id);
+      if (vol) {
+        await updateDoc(doc(db, 'ngo_volunteers', id), sanitizeForFirestore(vol));
+      }
+    } catch (e) {
+      console.warn('Could not update volunteer on firestore:', e);
+    }
+  },
+  deleteVolunteer: async (id) => {
+    const updated = get().volunteers.filter(v => v.id !== id);
+    set({ volunteers: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_volunteers', id));
+    } catch (e) {
+      console.warn('Could not delete volunteer on firestore:', e);
+    }
+  },
+
+  addEvent: async (eventData) => {
+    const id = uuidv4();
+    const newEvent: Event = { ...eventData, id };
+    const updated = [newEvent, ...get().events];
+    set({ events: updated });
+    try {
+      await setDoc(doc(db, 'ngo_events', id), sanitizeForFirestore(newEvent));
+    } catch (e) {
+      console.warn('Could not add event to firestore:', e);
+    }
+  },
+  updateEvent: async (id, eventUpdate) => {
+    const updated = get().events.map(e => e.id === id ? { ...e, ...eventUpdate } : e);
+    set({ events: updated });
+    try {
+      const ev = updated.find(e => e.id === id);
+      if (ev) {
+        await updateDoc(doc(db, 'ngo_events', id), sanitizeForFirestore(ev));
+      }
+    } catch (e) {
+      console.warn('Could not update event on firestore:', e);
+    }
+  },
+  deleteEvent: async (id) => {
+    const updated = get().events.filter(e => e.id !== id);
+    set({ events: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_events', id));
+    } catch (e) {
+      console.warn('Could not delete event on firestore:', e);
+    }
+  },
+
+  addNews: async (newsData) => {
+    const id = uuidv4();
+    const newNews: News = { ...newsData, id };
+    const updated = [newNews, ...get().news];
+    set({ news: updated });
+    try {
+      await setDoc(doc(db, 'ngo_news', id), sanitizeForFirestore(newNews));
+    } catch (e) {
+      console.warn('Could not add news to firestore:', e);
+    }
+  },
+  updateNews: async (id, newsUpdate) => {
+    const updated = get().news.map(n => n.id === id ? { ...n, ...newsUpdate } : n);
+    set({ news: updated });
+    try {
+      const item = updated.find(n => n.id === id);
+      if (item) {
+        await updateDoc(doc(db, 'ngo_news', id), sanitizeForFirestore(item));
+      }
+    } catch (e) {
+      console.warn('Could not update news on firestore:', e);
+    }
+  },
+  deleteNews: async (id) => {
+    const updated = get().news.filter(n => n.id !== id);
+    set({ news: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_news', id));
+    } catch (e) {
+      console.warn('Could not delete news on firestore:', e);
+    }
+  },
+
+  addDonation: async (donationData) => {
     const id = uuidv4();
     const receipt = `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     const status = donationData.status || 'Pending';
@@ -549,370 +617,168 @@ export const useNgoStore = create<NgoState>((set, get) => ({
       status,
       createdAt: new Date().toISOString()
     };
-    
-    // Auto-update campaign amount and donors count if donation is already Completed
-    let updatedCampaigns = get().campaigns;
-    if (status === 'Completed') {
-      const amountToAdd = Number(donationData.amount) || 0;
-      updatedCampaigns = get().campaigns.map(c => {
-        if (isCampaignMatch(c, donationData.campaignId, donationData.campaignName)) {
-          const newCurrent = Number(c.currentAmount || 0) + amountToAdd;
-          const isCompleted = newCurrent >= c.goalAmount && c.status === 'Active';
-          return {
-            ...c,
-            currentAmount: newCurrent,
-            donorsCount: (c.donorsCount || 0) + 1,
-            status: isCompleted ? ('Completed' as const) : c.status
-          };
-        }
-        return c;
-      });
-    }
-
-    const updatedDonations = [newDonation, ...get().donations];
-    set({ donations: updatedDonations, campaigns: updatedCampaigns });
-    saveToLocalStorage({ ...get(), donations: updatedDonations, campaigns: updatedCampaigns });
-
-    // Sync to Cloud Firestore immediately so all admins and devices see it in real-time
+    const updated = [newDonation, ...get().donations];
+    set({ donations: updated });
     try {
-      setDoc(doc(db, 'donations', id), newDonation).catch(err => {
-        console.warn('Firestore setDoc donation fallback to local:', err);
-      });
-    } catch (err) {
-      console.warn('Could not sync donation to Firestore:', err);
+      await setDoc(doc(db, 'ngo_donations', id), sanitizeForFirestore(newDonation));
+    } catch (e) {
+      console.warn('Could not add donation to firestore:', e);
     }
-
-    return receipt;
+    return newDonation;
   },
-
-  approveDonation: async (id: string, approver?: string | { name: string; role?: string }) => {
-    const donation = get().donations.find(d => d.id === id);
-    if (!donation) return null;
-
-    // Prevent duplicate crediting if already completed
-    if (donation.status === 'Completed') {
-      return donation;
-    }
-
-    let approverName = 'Admin Directorate';
-    let approverRole = 'Administrator';
-
-    if (typeof approver === 'string') {
-      approverName = approver.trim() || 'Admin Directorate';
-      if (approverName.toLowerCase().includes('mod')) {
-        approverRole = 'Moderator';
-      }
-    } else if (approver) {
-      approverName = approver.name?.trim() || 'Admin Directorate';
-      approverRole = approver.role || (approverName.toLowerCase().includes('mod') ? 'Moderator' : 'Administrator');
-    }
-
-    const approvedUpdate: Partial<Donation> = {
-      status: 'Completed',
-      approvedAt: new Date().toISOString(),
-      approvedBy: approverName,
-      approverRole: approverRole,
-      receiptSent: true,
-      receiptSentAt: new Date().toISOString()
-    };
-
-    // Auto-credit the donation amount directly onto the specific campaign amount loading bar
-    const donationAmount = Number(donation.amount) || 0;
-    const updatedCampaigns = get().campaigns.map(c => {
-      if (isCampaignMatch(c, donation.campaignId, donation.campaignName)) {
-        const newCurrent = Number(c.currentAmount || 0) + donationAmount;
-        const reachedGoal = newCurrent >= c.goalAmount && c.status === 'Active';
-        return {
-          ...c,
-          currentAmount: newCurrent,
-          donorsCount: (c.donorsCount || 0) + 1,
-          status: reachedGoal ? ('Completed' as const) : c.status
-        };
-      }
-      return c;
-    });
-
-    const updatedDonations = get().donations.map(d => d.id === id ? { ...d, ...approvedUpdate } : d);
-    set({ donations: updatedDonations, campaigns: updatedCampaigns });
-    saveToLocalStorage({ ...get(), donations: updatedDonations, campaigns: updatedCampaigns });
-
-    // Sync approval update to Cloud Firestore
+  updateDonation: async (id, donationUpdate) => {
+    const updated = get().donations.map(d => d.id === id ? { ...d, ...donationUpdate } : d);
+    set({ donations: updated });
     try {
-      updateDoc(doc(db, 'donations', id), approvedUpdate).catch(err => {
-        console.warn('Firestore updateDoc donation fallback to local:', err);
-      });
-    } catch (err) {
-      console.warn('Could not update donation in Firestore:', err);
-    }
-
-    return { ...donation, ...approvedUpdate };
-  },
-
-  updateDonation: (id, donationUpdate) => {
-    const existing = get().donations.find(d => d.id === id);
-    if (!existing) return;
-
-    const mergedDonation: Donation = { ...existing, ...donationUpdate };
-    let updatedCampaigns = get().campaigns;
-
-    const wasCompleted = existing.status === 'Completed';
-    const isCompleted = mergedDonation.status === 'Completed';
-
-    if (!wasCompleted && isCompleted) {
-      // Transition to Completed: Auto-add amount to campaign loading bar
-      const amountToAdd = Number(mergedDonation.amount) || 0;
-      updatedCampaigns = updatedCampaigns.map(c => {
-        if (isCampaignMatch(c, mergedDonation.campaignId, mergedDonation.campaignName)) {
-          const newCurrent = Number(c.currentAmount || 0) + amountToAdd;
-          const reachedGoal = newCurrent >= c.goalAmount && c.status === 'Active';
-          return {
-            ...c,
-            currentAmount: newCurrent,
-            donorsCount: (c.donorsCount || 0) + 1,
-            status: reachedGoal ? ('Completed' as const) : c.status
-          };
-        }
-        return c;
-      });
-    } else if (wasCompleted && !isCompleted) {
-      // Transition from Completed to Pending/Failed: Deduct amount from campaign
-      const amountToDeduct = Number(existing.amount) || 0;
-      updatedCampaigns = updatedCampaigns.map(c => {
-        if (isCampaignMatch(c, existing.campaignId, existing.campaignName)) {
-          return {
-            ...c,
-            currentAmount: Math.max(0, Number(c.currentAmount || 0) - amountToDeduct),
-            donorsCount: Math.max(0, (c.donorsCount || 1) - 1)
-          };
-        }
-        return c;
-      });
-    } else if (wasCompleted && isCompleted) {
-      // Remained completed: check for campaign or amount modification
-      const oldAmount = Number(existing.amount) || 0;
-      const newAmount = Number(mergedDonation.amount) || 0;
-      const isSameCamp = existing.campaignId === mergedDonation.campaignId &&
-                         existing.campaignName === mergedDonation.campaignName;
-
-      if (!isSameCamp) {
-        // Deduct from old campaign, add to new campaign
-        updatedCampaigns = updatedCampaigns.map(c => {
-          if (isCampaignMatch(c, existing.campaignId, existing.campaignName)) {
-            return {
-              ...c,
-              currentAmount: Math.max(0, Number(c.currentAmount || 0) - oldAmount),
-              donorsCount: Math.max(0, (c.donorsCount || 1) - 1)
-            };
-          }
-          if (isCampaignMatch(c, mergedDonation.campaignId, mergedDonation.campaignName)) {
-            return {
-              ...c,
-              currentAmount: Number(c.currentAmount || 0) + newAmount,
-              donorsCount: (c.donorsCount || 0) + 1
-            };
-          }
-          return c;
-        });
-      } else if (newAmount !== oldAmount) {
-        // Adjust difference on campaign
-        const diff = newAmount - oldAmount;
-        updatedCampaigns = updatedCampaigns.map(c => {
-          if (isCampaignMatch(c, mergedDonation.campaignId, mergedDonation.campaignName)) {
-            return {
-              ...c,
-              currentAmount: Math.max(0, Number(c.currentAmount || 0) + diff)
-            };
-          }
-          return c;
-        });
+      const don = updated.find(d => d.id === id);
+      if (don) {
+        await updateDoc(doc(db, 'ngo_donations', id), sanitizeForFirestore(don));
       }
-    }
-
-    const updated = get().donations.map(d => d.id === id ? mergedDonation : d);
-    set({ donations: updated, campaigns: updatedCampaigns });
-    saveToLocalStorage({ ...get(), donations: updated, campaigns: updatedCampaigns });
-
-    try {
-      updateDoc(doc(db, 'donations', id), donationUpdate).catch(err => {
-        console.warn('Firestore updateDoc fallback:', err);
-      });
-    } catch (err) {
-      console.warn('Could not update donation in Firestore:', err);
+    } catch (e) {
+      console.warn('Could not update donation on firestore:', e);
     }
   },
-
-  deleteDonation: (id) => {
-    const existing = get().donations.find(d => d.id === id);
-    let updatedCampaigns = get().campaigns;
-
-    if (existing && existing.status === 'Completed') {
-      const amountToDeduct = Number(existing.amount) || 0;
-      updatedCampaigns = updatedCampaigns.map(c => {
-        if (isCampaignMatch(c, existing.campaignId, existing.campaignName)) {
-          return {
-            ...c,
-            currentAmount: Math.max(0, Number(c.currentAmount || 0) - amountToDeduct),
-            donorsCount: Math.max(0, (c.donorsCount || 1) - 1)
-          };
-        }
-        return c;
-      });
-    }
-
+  deleteDonation: async (id) => {
     const updated = get().donations.filter(d => d.id !== id);
-    set({ donations: updated, campaigns: updatedCampaigns });
-    saveToLocalStorage({ ...get(), donations: updated, campaigns: updatedCampaigns });
-
+    set({ donations: updated });
     try {
-      deleteDoc(doc(db, 'donations', id)).catch(err => {
-        console.warn('Firestore deleteDoc fallback:', err);
-      });
-    } catch (err) {
-      console.warn('Could not delete donation in Firestore:', err);
+      await deleteDoc(doc(db, 'ngo_donations', id));
+    } catch (e) {
+      console.warn('Could not delete donation on firestore:', e);
     }
   },
 
-  addEvent: (eventData) => {
-    const newEvent: Event = { ...eventData, id: uuidv4(), attendeesCount: 0, status: 'Upcoming' };
-    const updated = [newEvent, ...get().events];
-    set({ events: updated });
-    saveToLocalStorage({ ...get(), events: updated });
-  },
-
-  updateEvent: (id, eventUpdate) => {
-    const updated = get().events.map(e => e.id === id ? { ...e, ...eventUpdate } : e);
-    set({ events: updated });
-    saveToLocalStorage({ ...get(), events: updated });
-  },
-
-  deleteEvent: (id) => {
-    const updated = get().events.filter(e => e.id !== id);
-    set({ events: updated });
-    saveToLocalStorage({ ...get(), events: updated });
-  },
-
-  addNews: (newsData) => {
-    const newArticle: News = { ...newsData, id: uuidv4() };
-    const updated = [newArticle, ...get().news];
-    set({ news: updated });
-    saveToLocalStorage({ ...get(), news: updated });
-  },
-
-  updateNews: (id, newsUpdate) => {
-    const updated = get().news.map(n => n.id === id ? { ...n, ...newsUpdate } : n);
-    set({ news: updated });
-    saveToLocalStorage({ ...get(), news: updated });
-  },
-
-  deleteNews: (id) => {
-    const updated = get().news.filter(n => n.id !== id);
-    set({ news: updated });
-    saveToLocalStorage({ ...get(), news: updated });
-  },
-
-  addMessage: (msgData) => {
+  addMessage: async (msgData) => {
+    const id = uuidv4();
     const newMsg: ContactMessage = {
       ...msgData,
-      id: uuidv4(),
+      id,
       isRead: false,
       createdAt: new Date().toISOString()
     };
     const updated = [newMsg, ...get().messages];
     set({ messages: updated });
-    saveToLocalStorage({ ...get(), messages: updated });
+    try {
+      await setDoc(doc(db, 'ngo_messages', id), sanitizeForFirestore(newMsg));
+    } catch (e) {
+      console.warn('Could not add message to firestore:', e);
+    }
   },
-
-  markMessageRead: (id) => {
+  markMessageRead: async (id) => {
     const updated = get().messages.map(m => m.id === id ? { ...m, isRead: true } : m);
     set({ messages: updated });
-    saveToLocalStorage({ ...get(), messages: updated });
+    try {
+      await updateDoc(doc(db, 'ngo_messages', id), { isRead: true });
+    } catch (e) {
+      console.warn('Could not mark message read on firestore:', e);
+    }
   },
-
-  deleteMessage: (id) => {
+  deleteMessage: async (id) => {
     const updated = get().messages.filter(m => m.id !== id);
     set({ messages: updated });
-    saveToLocalStorage({ ...get(), messages: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_messages', id));
+    } catch (e) {
+      console.warn('Could not delete message on firestore:', e);
+    }
   },
 
-  addDocument: (docData) => {
+  addDocument: async (docData) => {
+    const id = uuidv4();
     const newDoc: TransparencyDoc = {
       ...docData,
-      id: uuidv4(),
+      id,
       uploadedAt: new Date().toISOString().split('T')[0]
     };
     const updated = [newDoc, ...get().documents];
     set({ documents: updated });
-    saveToLocalStorage({ ...get(), documents: updated });
+    try {
+      await setDoc(doc(db, 'ngo_documents', id), sanitizeForFirestore(newDoc));
+    } catch (e) {
+      console.warn('Could not add document to firestore:', e);
+    }
   },
-
-  updateDocument: (id, docUpdate) => {
+  updateDocument: async (id, docUpdate) => {
     const updated = get().documents.map(d => d.id === id ? { ...d, ...docUpdate } : d);
     set({ documents: updated });
-    saveToLocalStorage({ ...get(), documents: updated });
+    try {
+      const item = updated.find(d => d.id === id);
+      if (item) {
+        await updateDoc(doc(db, 'ngo_documents', id), sanitizeForFirestore(item));
+      }
+    } catch (e) {
+      console.warn('Could not update document on firestore:', e);
+    }
   },
-
-  deleteDocument: (id) => {
+  deleteDocument: async (id) => {
     const updated = get().documents.filter(d => d.id !== id);
     set({ documents: updated });
-    saveToLocalStorage({ ...get(), documents: updated });
+    try {
+      await deleteDoc(doc(db, 'ngo_documents', id));
+    } catch (e) {
+      console.warn('Could not delete document on firestore:', e);
+    }
   },
 
-  updateStats: (newStats) => {
+  updateStats: async (newStats) => {
     const updated = { ...get().stats, ...newStats };
     set({ stats: updated });
-    saveToLocalStorage({ ...get(), stats: updated });
+    try {
+      await setDoc(doc(db, 'ngo_stats', 'main'), sanitizeForFirestore(updated), { merge: true });
+    } catch (e) {
+      console.warn('Could not update stats on firestore:', e);
+    }
   }
 }));
 
-// Real-time synchronization across devices (Cloud Firestore) and tabs (Storage Event)
-export const initDonationsSync = () => {
+// Real-time synchronization across devices via Cloud Firestore
+export const initNgoCloudSync = () => {
   if (typeof window === 'undefined') return;
 
-  // 1. Cross-tab immediate sync via storage events
-  window.addEventListener('storage', (event) => {
-    if (event.key === STORAGE_KEY && event.newValue) {
-      try {
-        const parsed = JSON.parse(event.newValue);
-        const updates: Partial<NgoState> = {};
-        if (parsed.donations) updates.donations = parsed.donations;
-        if (parsed.campaigns) updates.campaigns = parsed.campaigns;
-        if (Object.keys(updates).length > 0) {
-          useNgoStore.setState(updates);
+  const collectionsToSync = [
+    { name: 'ngo_projects', key: 'projects' },
+    { name: 'ngo_campaigns', key: 'campaigns' },
+    { name: 'ngo_volunteers', key: 'volunteers' },
+    { name: 'ngo_events', key: 'events' },
+    { name: 'ngo_news', key: 'news' },
+    { name: 'ngo_donations', key: 'donations' },
+    { name: 'ngo_messages', key: 'messages' },
+    { name: 'ngo_documents', key: 'documents' }
+  ];
+
+  collectionsToSync.forEach(({ name, key }) => {
+    try {
+      onSnapshot(collection(db, name), (snapshot) => {
+        if (!snapshot.empty) {
+          const items: any[] = [];
+          snapshot.forEach(docSnap => {
+            items.push(docSnap.data());
+          });
+          useNgoStore.setState({ [key]: items } as any);
         }
-      } catch (e) {
-        // Non-fatal
-      }
+      }, (err) => {
+        console.warn(`Firestore sync notice for ${name}:`, err.message);
+      });
+    } catch (e) {
+      console.warn(`Could not init sync for ${name}:`, e);
     }
   });
 
-  // 2. Cloud Firestore real-time listener for multi-device sync
+  // Sync stats document
   try {
-    onSnapshot(collection(db, 'donations'), (snapshot) => {
-      if (!snapshot.empty) {
-        const cloudDonations: Donation[] = [];
-        snapshot.forEach(docSnap => {
-          cloudDonations.push(docSnap.data() as Donation);
-        });
-
-        const currentLocal = useNgoStore.getState().donations;
-        const donationMap = new Map<string, Donation>();
-        currentLocal.forEach(d => donationMap.set(d.id, d));
-        cloudDonations.forEach(d => donationMap.set(d.id, d));
-
-        const merged = Array.from(donationMap.values()).sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-
-        useNgoStore.setState({ donations: merged });
-        saveToLocalStorage({ ...useNgoStore.getState(), donations: merged });
+    onSnapshot(doc(db, 'ngo_stats', 'main'), (docSnap) => {
+      if (docSnap.exists()) {
+        useNgoStore.setState({ stats: docSnap.data() as any });
       }
     }, (err) => {
-      console.warn('Firestore donation sync channel notice:', err.message);
+      console.warn('Firestore stats sync notice:', err.message);
     });
-  } catch (err) {
-    console.warn('Cloud sync initialization notice:', err);
+  } catch (e) {
+    console.warn('Could not init stats sync:', e);
   }
 };
 
-// Automatically start sync
-initDonationsSync();
+// Automatically start cloud synchronization
+initNgoCloudSync();
+
+export const initDonationsSync = initNgoCloudSync;
