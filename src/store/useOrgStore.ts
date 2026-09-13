@@ -324,14 +324,17 @@ export const useOrgStore = create<OrgState>((set, get) => ({
             activeTemplateId: newActiveId,
             webUsers: newWebUsers,
           });
-          saveLocalOrgData({
-            organization: newOrg,
-            members: get().members,
-            customFields: newFields,
-            templates: newTemplates,
-            activeTemplateId: newActiveId,
-            webUsers: newWebUsers
-          });
+          // Local persistence fallback
+          try {
+            localStorage.setItem('ngo_org_data', JSON.stringify({
+              organization: newOrg,
+              members: get().members,
+              customFields: newFields,
+              templates: newTemplates,
+              activeTemplateId: newActiveId,
+              webUsers: newWebUsers
+            }));
+          } catch (e) {}
         }
       }, (err) => {
         console.warn('Workspace sync listener notice:', err.message);

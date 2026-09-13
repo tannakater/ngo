@@ -468,9 +468,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
         const unsub = onSnapshot(colRef, (snapshot) => {
           const items: any[] = [];
           snapshot.forEach(d => items.push(d.data()));
-          if (items.length > 0) {
-            set({ [stateKey]: items } as any);
-          }
+          set({ [stateKey]: items } as any);
         }, (err) => {
           console.warn(`Snapshot listener warning for ${colName}:`, err.message);
         });
@@ -537,8 +535,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     }
   },
   deleteProject: async (id) => {
-    const updated = get().projects.filter(p => p.id !== id);
-    set({ projects: updated });
+    set({ projects: get().projects.filter(p => p.id !== id) });
     try {
       await deleteDoc(doc(db, 'projects', id));
     } catch (e) {
@@ -570,8 +567,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     }
   },
   deleteCampaign: async (id) => {
-    const updated = get().campaigns.filter(c => c.id !== id);
-    set({ campaigns: updated });
+    set({ campaigns: get().campaigns.filter(c => c.id !== id) });
     try {
       await deleteDoc(doc(db, 'campaigns', id));
     } catch (e) {
