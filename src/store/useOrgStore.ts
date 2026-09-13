@@ -38,24 +38,24 @@ export const DEFAULT_OFFICIAL_LOGO_SVG = "/daksheba.jpg";
 
 const defaultOrganization: Organization = {
   id: 'org-1',
-  name: 'Global Hope Foundation',
-  nameBn: 'গ্লোবাল হোপ ফাউন্ডেশন',
-  shortName: 'GHF',
+  name: 'DakSeba Foundation',
+  nameBn: 'দাকসেবা ফাউন্ডেশন',
+  shortName: 'DAK',
   tagline: 'Empowering Communities, Sustaining Lives & Restoring Hope',
   logoUrl: DEFAULT_OFFICIAL_LOGO_SVG,
-  address: 'House 42, Road 11, Block D, Banani, Dhaka-1213',
-  phone: '+880 2 9876543 / +880 1711-002233',
-  email: 'info@globalhopefoundation.org',
-  website: 'https://globalhopefoundation.org',
-  facebook: 'https://facebook.com/globalhopefoundation',
-  primaryColor: '#064e3b',
+  address: 'DakSeba Headquarters, Dhaka',
+  phone: '+880 1711-002233',
+  email: 'info@dakshebafoundation.org',
+  website: 'https://dakshebafoundation.org',
+  facebook: 'https://facebook.com/dakshebafoundation',
+  primaryColor: '#000000',
   secondaryColor: '#059669',
   cardBackground: '#ffffff',
   registrationNumber: 'NGO-AB-2023-09412',
   emergencyContact: '+880 1711-998877',
   qrVerificationUrl: typeof window !== 'undefined' && window.location?.origin ? `${window.location.origin}/verify?id=` : '/verify?id=',
   noticeText: 'If found, please return this card to the organization office or contact support.',
-  currency: 'USD',
+  currency: 'BDT',
   mission: 'To mobilize swift, equitable resources and certified volunteer networks to combat poverty, provide disaster relief, build robust water and health infrastructure, and ensure quality educational pathways for historically underserved communities.',
   vision: 'A world where every individual, regardless of geographic vulnerability or economic background, enjoys clean water, quality education, resilient healthcare, and the security of a compassionate, organized community safety net.',
 };
@@ -304,7 +304,14 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       unsubUser = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          const newOrg = { ...defaultOrganization, ...get().organization, ...(data.organization || {}) };
+          const remoteOrg = data.organization || {};
+          const currentOrg = get().organization;
+          const newOrg = { 
+            ...defaultOrganization, 
+            ...currentOrg,
+            ...remoteOrg,
+            name: (remoteOrg.name === 'Global Hope Foundation' && currentOrg.name && currentOrg.name !== 'Global Hope Foundation') ? currentOrg.name : (remoteOrg.name || currentOrg.name || defaultOrganization.name),
+          };
           const newFields = data.customFields || get().customFields;
           const newTemplates = data.templates || get().templates;
           const newActiveId = data.activeTemplateId || get().activeTemplateId;
