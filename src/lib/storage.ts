@@ -345,26 +345,39 @@ export const uploadImage = async (
   path: string, 
   explicitCategory?: StorageCategory | string
 ): Promise<string> => {
-  const currentMode = getStorageMode();
+  const vpsUrl = import.meta.env.VITE_VPS_UPLOAD_URL || 'http://74.225.235.215:4000/api/upload';
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  // If in 'local' mode, store directly as compressed image data so Drive stays 100% private
+    const res = await fetch(vpsUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (data.success && data.url) {
+      return data.url;
+    }
+  } catch (err) {
+    console.warn('VPS upload failed, falling back to local compression', err);
+  }
+
+  const currentMode = getStorageMode();
   if (currentMode === 'local') {
     return await compressImage(file);
   }
 
   const token = await getAccessToken();
-
-  // Resilient fallback: If not signed into Google Drive or token missing, compress to Data URL
   if (!token) {
     return await compressImage(file);
   }
 
   try {
-    // Determine subfolder
     const category = resolveCategory(explicitCategory || path);
     const targetFolderId = await getOrCreateSubfolder(token, category);
 
-    // 1. Resumable Upload Initialization
     const fileName = file.name || path.split('/').pop() || `${Date.now()}_file.png`;
     const metadata = {
       name: fileName,
@@ -387,7 +400,6 @@ export const uploadImage = async (
       throw new Error('Failed to initiate Google Drive upload');
     }
 
-    // 2. Binary upload
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
@@ -399,7 +411,6 @@ export const uploadImage = async (
     const uploadData = await uploadRes.json();
     const fileId = uploadData.id;
 
-    // 3. Make uploaded file publicly accessible for website display
     try {
       await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
         method: 'POST',
@@ -416,7 +427,6 @@ export const uploadImage = async (
       // Non-fatal
     }
 
-    // 4. Fetch optimal display URL
     const fileMetaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=webContentLink,thumbnailLink`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -429,7 +439,6 @@ export const uploadImage = async (
     return `https://lh3.googleusercontent.com/d/${fileId}=s1200`;
   } catch (err) {
     console.warn('Google Drive upload encountered an issue, safely falling back to private web storage:', err);
-    // Safe fallback so upload never fails for user
     return await compressImage(file);
   }
 };
