@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNgoStore } from './store/useNgoStore';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { PublicLayout } from './components/public/PublicLayout';
@@ -35,6 +37,12 @@ import { AdminSettings } from './pages/admin/Settings';
 import { SystemUsers } from './pages/admin/SystemUsers';
 
 export default function App() {
+  const syncNgoWithUser = useNgoStore(state => state.syncNgoWithUser);
+
+  useEffect(() => {
+    syncNgoWithUser('public-workspace');
+  }, [syncNgoWithUser]);
+
   return (
     <Router>
       <Routes>
