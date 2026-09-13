@@ -458,17 +458,25 @@ export const useNgoStore = create<NgoState>((set, get) => ({
         const snap = await getDocs(colRef);
         if (snap.empty) {
           for (const item of initialData) {
-            await setDoc(doc(colRef, item.id), sanitizeForFirestore(item));
+            try {
+              await setDoc(doc(colRef, item.id), sanitizeForFirestore(item));
+            } catch (err) {
+              // Ignore offline write errors
+            }
           }
         }
         const unsub = onSnapshot(colRef, (snapshot) => {
           const items: any[] = [];
           snapshot.forEach(d => items.push(d.data()));
-          set({ [stateKey]: items } as any);
+          if (items.length > 0) {
+            set({ [stateKey]: items } as any);
+          }
+        }, (err) => {
+          console.warn(`Snapshot listener warning for ${colName}:`, err.message);
         });
         unsubscribers.push(unsub);
-      } catch (e) {
-        console.warn(`Could not sync collection ${colName}:`, e);
+      } catch (e: any) {
+        console.warn(`Could not sync collection ${colName} (operating in offline fallback mode):`, e?.message);
       }
     };
 
