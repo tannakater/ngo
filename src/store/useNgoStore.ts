@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 export interface Project {
   id: string;
@@ -109,6 +109,7 @@ export interface TransparencyDoc {
 }
 
 export interface NgoState {
+  userId: string | null;
   projects: Project[];
   campaigns: Campaign[];
   volunteers: Volunteer[];
@@ -123,6 +124,8 @@ export interface NgoState {
     projectsCompleted: string;
     fundsRaised: string;
   };
+  syncNgoWithUser: (userId: string) => Promise<void>;
+  disconnectNgoFirebase: () => void;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (id: string, project: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -425,7 +428,10 @@ export const isCampaignMatch = (camp: Campaign, campaignId?: string, campaignNam
   return false;
 };
 
+let unsubNgoDoc: (() => void) | null = null;
+
 export const useNgoStore = create<NgoState>((set, get) => ({
+  userId: null,
   projects: initialProjects,
   campaigns: initialCampaigns,
   volunteers: initialVolunteers,
@@ -441,172 +447,274 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     fundsRaised: "$2.65M",
   },
 
-  addProject: async (projectData) => {
-    const id = uuidv4();
-    const newProject: Project = { ...projectData, id };
-    const updated = [newProject, ...get().projects];
-    set({ projects: updated });
+  syncNgoWithUser: async (userId: string) => {
+    set({ userId });
+    if (unsubNgoDoc) {
+      unsubNgoDoc();
+      unsubNgoDoc = null;
+    }
+
     try {
-      await setDoc(doc(db, 'ngo_projects', id), sanitizeForFirestore(newProject));
+      const userRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists()) {
+        await setDoc(userRef, sanitizeForFirestore({
+          projects: initialProjects,
+          campaigns: initialCampaigns,
+          volunteers: initialVolunteers,
+          events: initialEvents,
+          news: initialNews,
+          donations: initialDonations,
+          messages: initialMessages,
+          documents: initialDocuments,
+          stats: {
+            peopleHelped: "52,400+",
+            volunteers: "1,250+",
+            projectsCompleted: "48",
+            fundsRaised: "$2.65M",
+          }
+        }), { merge: true });
+      } else {
+        const data = docSnap.data();
+        set({
+          projects: data.projects || initialProjects,
+          campaigns: data.campaigns || initialCampaigns,
+          volunteers: data.volunteers || initialVolunteers,
+          events: data.events || initialEvents,
+          news: data.news || initialNews,
+          donations: data.donations || initialDonations,
+          messages: data.messages || initialMessages,
+          documents: data.documents || initialDocuments,
+          stats: data.stats || {
+            peopleHelped: "52,400+",
+            volunteers: "1,250+",
+            projectsCompleted: "48",
+            fundsRaised: "$2.65M",
+          }
+        });
+      }
+
+      unsubNgoDoc = onSnapshot(userRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          set({
+            projects: data.projects || get().projects,
+            campaigns: data.campaigns || get().campaigns,
+            volunteers: data.volunteers || get().volunteers,
+            events: data.events || get().events,
+            news: data.news || get().news,
+            donations: data.donations || get().donations,
+            messages: data.messages || get().messages,
+            documents: data.documents || get().documents,
+            stats: data.stats || get().stats
+          });
+        }
+      });
     } catch (e) {
-      console.warn('Could not add project to firestore:', e);
+      console.warn('Could not sync NGO state with user doc:', e);
+    }
+  },
+
+  disconnectNgoFirebase: () => {
+    if (unsubNgoDoc) {
+      unsubNgoDoc();
+      unsubNgoDoc = null;
+    }
+    set({ userId: null });
+  },
+
+  addProject: async (projectData) => {
+    const { userId, projects } = get();
+    const newProject: Project = { ...projectData, id: uuidv4() };
+    const updated = [newProject, ...projects];
+    set({ projects: updated });
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ projects: updated }));
+      } catch (e) {
+        console.warn('Could not add project to user doc:', e);
+      }
     }
   },
   updateProject: async (id, projectUpdate) => {
-    const updated = get().projects.map(p => p.id === id ? { ...p, ...projectUpdate } : p);
+    const { userId, projects } = get();
+    const updated = projects.map(p => p.id === id ? { ...p, ...projectUpdate } : p);
     set({ projects: updated });
-    try {
-      const proj = updated.find(p => p.id === id);
-      if (proj) {
-        await updateDoc(doc(db, 'ngo_projects', id), sanitizeForFirestore(proj));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ projects: updated }));
+      } catch (e) {
+        console.warn('Could not update project on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update project on firestore:', e);
     }
   },
   deleteProject: async (id) => {
-    const updated = get().projects.filter(p => p.id !== id);
+    const { userId, projects } = get();
+    const updated = projects.filter(p => p.id !== id);
     set({ projects: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_projects', id));
-    } catch (e) {
-      console.warn('Could not delete project on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ projects: updated }));
+      } catch (e) {
+        console.warn('Could not delete project on user doc:', e);
+      }
     }
   },
 
   addCampaign: async (campaignData) => {
-    const id = uuidv4();
-    const newCampaign: Campaign = { ...campaignData, id, donorsCount: 0 };
-    const updated = [newCampaign, ...get().campaigns];
+    const { userId, campaigns } = get();
+    const newCampaign: Campaign = { ...campaignData, id: uuidv4(), donorsCount: 0 };
+    const updated = [newCampaign, ...campaigns];
     set({ campaigns: updated });
-    try {
-      await setDoc(doc(db, 'ngo_campaigns', id), sanitizeForFirestore(newCampaign));
-    } catch (e) {
-      console.warn('Could not add campaign to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ campaigns: updated }));
+      } catch (e) {
+        console.warn('Could not add campaign to user doc:', e);
+      }
     }
   },
   updateCampaign: async (id, campaignUpdate) => {
-    const updated = get().campaigns.map(c => c.id === id ? { ...c, ...campaignUpdate } : c);
+    const { userId, campaigns } = get();
+    const updated = campaigns.map(c => c.id === id ? { ...c, ...campaignUpdate } : c);
     set({ campaigns: updated });
-    try {
-      const camp = updated.find(c => c.id === id);
-      if (camp) {
-        await updateDoc(doc(db, 'ngo_campaigns', id), sanitizeForFirestore(camp));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ campaigns: updated }));
+      } catch (e) {
+        console.warn('Could not update campaign on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update campaign on firestore:', e);
     }
   },
   deleteCampaign: async (id) => {
-    const updated = get().campaigns.filter(c => c.id !== id);
+    const { userId, campaigns } = get();
+    const updated = campaigns.filter(c => c.id !== id);
     set({ campaigns: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_campaigns', id));
-    } catch (e) {
-      console.warn('Could not delete campaign on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ campaigns: updated }));
+      } catch (e) {
+        console.warn('Could not delete campaign on user doc:', e);
+      }
     }
   },
 
   addVolunteer: async (volunteerData) => {
-    const id = uuidv4();
-    const newVolunteer: Volunteer = { ...volunteerData, id };
-    const updated = [newVolunteer, ...get().volunteers];
+    const { userId, volunteers } = get();
+    const newVolunteer: Volunteer = { ...volunteerData, id: uuidv4() };
+    const updated = [newVolunteer, ...volunteers];
     set({ volunteers: updated });
-    try {
-      await setDoc(doc(db, 'ngo_volunteers', id), sanitizeForFirestore(newVolunteer));
-    } catch (e) {
-      console.warn('Could not add volunteer to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ volunteers: updated }));
+      } catch (e) {
+        console.warn('Could not add volunteer to user doc:', e);
+      }
     }
   },
   updateVolunteer: async (id, volunteerUpdate) => {
-    const updated = get().volunteers.map(v => v.id === id ? { ...v, ...volunteerUpdate } : v);
+    const { userId, volunteers } = get();
+    const updated = volunteers.map(v => v.id === id ? { ...v, ...volunteerUpdate } : v);
     set({ volunteers: updated });
-    try {
-      const vol = updated.find(v => v.id === id);
-      if (vol) {
-        await updateDoc(doc(db, 'ngo_volunteers', id), sanitizeForFirestore(vol));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ volunteers: updated }));
+      } catch (e) {
+        console.warn('Could not update volunteer on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update volunteer on firestore:', e);
     }
   },
   deleteVolunteer: async (id) => {
-    const updated = get().volunteers.filter(v => v.id !== id);
+    const { userId, volunteers } = get();
+    const updated = volunteers.filter(v => v.id !== id);
     set({ volunteers: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_volunteers', id));
-    } catch (e) {
-      console.warn('Could not delete volunteer on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ volunteers: updated }));
+      } catch (e) {
+        console.warn('Could not delete volunteer on user doc:', e);
+      }
     }
   },
 
   addEvent: async (eventData) => {
-    const id = uuidv4();
-    const newEvent: Event = { ...eventData, id };
-    const updated = [newEvent, ...get().events];
+    const { userId, events } = get();
+    const newEvent: Event = { ...eventData, id: uuidv4() };
+    const updated = [newEvent, ...events];
     set({ events: updated });
-    try {
-      await setDoc(doc(db, 'ngo_events', id), sanitizeForFirestore(newEvent));
-    } catch (e) {
-      console.warn('Could not add event to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ events: updated }));
+      } catch (e) {
+        console.warn('Could not add event to user doc:', e);
+      }
     }
   },
   updateEvent: async (id, eventUpdate) => {
-    const updated = get().events.map(e => e.id === id ? { ...e, ...eventUpdate } : e);
+    const { userId, events } = get();
+    const updated = events.map(e => e.id === id ? { ...e, ...eventUpdate } : e);
     set({ events: updated });
-    try {
-      const ev = updated.find(e => e.id === id);
-      if (ev) {
-        await updateDoc(doc(db, 'ngo_events', id), sanitizeForFirestore(ev));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ events: updated }));
+      } catch (e) {
+        console.warn('Could not update event on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update event on firestore:', e);
     }
   },
   deleteEvent: async (id) => {
-    const updated = get().events.filter(e => e.id !== id);
+    const { userId, events } = get();
+    const updated = events.filter(e => e.id !== id);
     set({ events: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_events', id));
-    } catch (e) {
-      console.warn('Could not delete event on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ events: updated }));
+      } catch (e) {
+        console.warn('Could not delete event on user doc:', e);
+      }
     }
   },
 
   addNews: async (newsData) => {
-    const id = uuidv4();
-    const newNews: News = { ...newsData, id };
-    const updated = [newNews, ...get().news];
+    const { userId, news } = get();
+    const newNews: News = { ...newsData, id: uuidv4() };
+    const updated = [newNews, ...news];
     set({ news: updated });
-    try {
-      await setDoc(doc(db, 'ngo_news', id), sanitizeForFirestore(newNews));
-    } catch (e) {
-      console.warn('Could not add news to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ news: updated }));
+      } catch (e) {
+        console.warn('Could not add news to user doc:', e);
+      }
     }
   },
   updateNews: async (id, newsUpdate) => {
-    const updated = get().news.map(n => n.id === id ? { ...n, ...newsUpdate } : n);
+    const { userId, news } = get();
+    const updated = news.map(n => n.id === id ? { ...n, ...newsUpdate } : n);
     set({ news: updated });
-    try {
-      const item = updated.find(n => n.id === id);
-      if (item) {
-        await updateDoc(doc(db, 'ngo_news', id), sanitizeForFirestore(item));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ news: updated }));
+      } catch (e) {
+        console.warn('Could not update news on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update news on firestore:', e);
     }
   },
   deleteNews: async (id) => {
-    const updated = get().news.filter(n => n.id !== id);
+    const { userId, news } = get();
+    const updated = news.filter(n => n.id !== id);
     set({ news: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_news', id));
-    } catch (e) {
-      console.warn('Could not delete news on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ news: updated }));
+      } catch (e) {
+        console.warn('Could not delete news on user doc:', e);
+      }
     }
   },
 
   addDonation: async (donationData) => {
+    const { userId, donations } = get();
     const id = uuidv4();
     const receipt = `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     const status = donationData.status || 'Pending';
@@ -617,168 +725,139 @@ export const useNgoStore = create<NgoState>((set, get) => ({
       status,
       createdAt: new Date().toISOString()
     };
-    const updated = [newDonation, ...get().donations];
+    const updated = [newDonation, ...donations];
     set({ donations: updated });
-    try {
-      await setDoc(doc(db, 'ngo_donations', id), sanitizeForFirestore(newDonation));
-    } catch (e) {
-      console.warn('Could not add donation to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ donations: updated }));
+      } catch (e) {
+        console.warn('Could not add donation to user doc:', e);
+      }
     }
     return newDonation;
   },
   updateDonation: async (id, donationUpdate) => {
-    const updated = get().donations.map(d => d.id === id ? { ...d, ...donationUpdate } : d);
+    const { userId, donations } = get();
+    const updated = donations.map(d => d.id === id ? { ...d, ...donationUpdate } : d);
     set({ donations: updated });
-    try {
-      const don = updated.find(d => d.id === id);
-      if (don) {
-        await updateDoc(doc(db, 'ngo_donations', id), sanitizeForFirestore(don));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ donations: updated }));
+      } catch (e) {
+        console.warn('Could not update donation on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update donation on firestore:', e);
     }
   },
   deleteDonation: async (id) => {
-    const updated = get().donations.filter(d => d.id !== id);
+    const { userId, donations } = get();
+    const updated = donations.filter(d => d.id !== id);
     set({ donations: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_donations', id));
-    } catch (e) {
-      console.warn('Could not delete donation on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ donations: updated }));
+      } catch (e) {
+        console.warn('Could not delete donation on user doc:', e);
+      }
     }
   },
 
   addMessage: async (msgData) => {
-    const id = uuidv4();
+    const { userId, messages } = get();
     const newMsg: ContactMessage = {
       ...msgData,
-      id,
+      id: uuidv4(),
       isRead: false,
       createdAt: new Date().toISOString()
     };
-    const updated = [newMsg, ...get().messages];
+    const updated = [newMsg, ...messages];
     set({ messages: updated });
-    try {
-      await setDoc(doc(db, 'ngo_messages', id), sanitizeForFirestore(newMsg));
-    } catch (e) {
-      console.warn('Could not add message to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ messages: updated }));
+      } catch (e) {
+        console.warn('Could not add message to user doc:', e);
+      }
     }
   },
   markMessageRead: async (id) => {
-    const updated = get().messages.map(m => m.id === id ? { ...m, isRead: true } : m);
+    const { userId, messages } = get();
+    const updated = messages.map(m => m.id === id ? { ...m, isRead: true } : m);
     set({ messages: updated });
-    try {
-      await updateDoc(doc(db, 'ngo_messages', id), { isRead: true });
-    } catch (e) {
-      console.warn('Could not mark message read on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ messages: updated }));
+      } catch (e) {
+        console.warn('Could not mark message read on user doc:', e);
+      }
     }
   },
   deleteMessage: async (id) => {
-    const updated = get().messages.filter(m => m.id !== id);
+    const { userId, messages } = get();
+    const updated = messages.filter(m => m.id !== id);
     set({ messages: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_messages', id));
-    } catch (e) {
-      console.warn('Could not delete message on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ messages: updated }));
+      } catch (e) {
+        console.warn('Could not delete message on user doc:', e);
+      }
     }
   },
 
   addDocument: async (docData) => {
-    const id = uuidv4();
+    const { userId, documents } = get();
     const newDoc: TransparencyDoc = {
       ...docData,
-      id,
+      id: uuidv4(),
       uploadedAt: new Date().toISOString().split('T')[0]
     };
-    const updated = [newDoc, ...get().documents];
+    const updated = [newDoc, ...documents];
     set({ documents: updated });
-    try {
-      await setDoc(doc(db, 'ngo_documents', id), sanitizeForFirestore(newDoc));
-    } catch (e) {
-      console.warn('Could not add document to firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ documents: updated }));
+      } catch (e) {
+        console.warn('Could not add document to user doc:', e);
+      }
     }
   },
   updateDocument: async (id, docUpdate) => {
-    const updated = get().documents.map(d => d.id === id ? { ...d, ...docUpdate } : d);
+    const { userId, documents } = get();
+    const updated = documents.map(d => d.id === id ? { ...d, ...docUpdate } : d);
     set({ documents: updated });
-    try {
-      const item = updated.find(d => d.id === id);
-      if (item) {
-        await updateDoc(doc(db, 'ngo_documents', id), sanitizeForFirestore(item));
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ documents: updated }));
+      } catch (e) {
+        console.warn('Could not update document on user doc:', e);
       }
-    } catch (e) {
-      console.warn('Could not update document on firestore:', e);
     }
   },
   deleteDocument: async (id) => {
-    const updated = get().documents.filter(d => d.id !== id);
+    const { userId, documents } = get();
+    const updated = documents.filter(d => d.id !== id);
     set({ documents: updated });
-    try {
-      await deleteDoc(doc(db, 'ngo_documents', id));
-    } catch (e) {
-      console.warn('Could not delete document on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ documents: updated }));
+      } catch (e) {
+        console.warn('Could not delete document on user doc:', e);
+      }
     }
   },
 
   updateStats: async (newStats) => {
-    const updated = { ...get().stats, ...newStats };
+    const { userId, stats } = get();
+    const updated = { ...stats, ...newStats };
     set({ stats: updated });
-    try {
-      await setDoc(doc(db, 'ngo_stats', 'main'), sanitizeForFirestore(updated), { merge: true });
-    } catch (e) {
-      console.warn('Could not update stats on firestore:', e);
+    if (userId) {
+      try {
+        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ stats: updated }));
+      } catch (e) {
+        console.warn('Could not update stats on user doc:', e);
+      }
     }
   }
 }));
 
-// Real-time synchronization across devices via Cloud Firestore
-export const initNgoCloudSync = () => {
-  if (typeof window === 'undefined') return;
-
-  const collectionsToSync = [
-    { name: 'ngo_projects', key: 'projects' },
-    { name: 'ngo_campaigns', key: 'campaigns' },
-    { name: 'ngo_volunteers', key: 'volunteers' },
-    { name: 'ngo_events', key: 'events' },
-    { name: 'ngo_news', key: 'news' },
-    { name: 'ngo_donations', key: 'donations' },
-    { name: 'ngo_messages', key: 'messages' },
-    { name: 'ngo_documents', key: 'documents' }
-  ];
-
-  collectionsToSync.forEach(({ name, key }) => {
-    try {
-      onSnapshot(collection(db, name), (snapshot) => {
-        if (!snapshot.empty) {
-          const items: any[] = [];
-          snapshot.forEach(docSnap => {
-            items.push(docSnap.data());
-          });
-          useNgoStore.setState({ [key]: items } as any);
-        }
-      }, (err) => {
-        console.warn(`Firestore sync notice for ${name}:`, err.message);
-      });
-    } catch (e) {
-      console.warn(`Could not init sync for ${name}:`, e);
-    }
-  });
-
-  // Sync stats document
-  try {
-    onSnapshot(doc(db, 'ngo_stats', 'main'), (docSnap) => {
-      if (docSnap.exists()) {
-        useNgoStore.setState({ stats: docSnap.data() as any });
-      }
-    }, (err) => {
-      console.warn('Firestore stats sync notice:', err.message);
-    });
-  } catch (e) {
-    console.warn('Could not init stats sync:', e);
-  }
-};
-
-// Automatically start cloud synchronization
-initNgoCloudSync();
-
-export const initDonationsSync = initNgoCloudSync;
+export const initDonationsSync = () => {};

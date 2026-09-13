@@ -5,6 +5,7 @@ import {
   AlertCircle, ArrowLeft
 } from 'lucide-react';
 import { useOrgStore } from '../../store/useOrgStore';
+import { useNgoStore } from '../../store/useNgoStore';
 import { initAuth, signInWithEmail, googleSignIn, AdminUser } from '../../lib/auth';
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const { organization, syncWithFirebase, webUsers } = useOrgStore();
+  const { syncNgoWithUser } = useNgoStore();
 
   useEffect(() => {
     const unsubscribe = initAuth(
@@ -30,6 +32,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         setLoading(false);
         if (currentUser?.uid) {
           syncWithFirebase(currentUser.uid);
+          syncNgoWithUser(currentUser.uid);
         }
       },
       () => {
@@ -39,7 +42,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       }
     );
     return () => unsubscribe();
-  }, [syncWithFirebase]);
+  }, [syncWithFirebase, syncNgoWithUser]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +55,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       setNeedsAuth(false);
       if (admin.uid) {
         syncWithFirebase(admin.uid);
+        syncNgoWithUser(admin.uid);
       }
     } catch (err: any) {
       console.error('Email sign in failure:', err);
