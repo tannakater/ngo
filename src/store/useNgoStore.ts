@@ -464,9 +464,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
         const unsub = onSnapshot(colRef, (snapshot) => {
           const items: any[] = [];
           snapshot.forEach(d => items.push(d.data()));
-          if (items.length > 0) {
-            set({ [stateKey]: items } as any);
-          }
+          set({ [stateKey]: items } as any);
         });
         unsubscribers.push(unsub);
       } catch (e) {

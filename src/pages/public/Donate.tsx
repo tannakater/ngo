@@ -16,7 +16,6 @@ export function Donate() {
   const { organization } = useOrgStore();
 
   const activeCampaigns = campaigns.filter(c => c.status === 'Active');
-  const availableCampaigns = campaigns.filter(c => c.status === 'Active' || c.id === formData.campaignId);
   
   const campaignParam = searchParams.get('campaign');
   const amountParam = searchParams.get('amount');
@@ -70,6 +69,8 @@ export function Donate() {
     trxId: '',
     bankDepositRef: '',
   });
+
+  const availableCampaigns = campaigns.filter(c => c.status === 'Active' || c.id === formData.campaignId);
 
   const [receiptNumber, setReceiptNumber] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -135,7 +136,8 @@ export function Donate() {
       createdAt: new Date().toISOString()
     };
 
-    const generatedReceipt = addDonation(newDonationObj);
+    const createdDonation = await addDonation(newDonationObj);
+    const generatedReceipt = createdDonation.receiptNumber;
     newDonationObj.receiptNumber = generatedReceipt;
     setReceiptNumber(generatedReceipt);
     setIsProcessing(false);
