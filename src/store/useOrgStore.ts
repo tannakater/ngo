@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Organization, Member, CustomFieldDefinition, CardTemplate, WebUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { useAuditStore } from './useAuditStore';
 
 export type { Member, Organization, CardTemplate };
 
@@ -295,6 +296,12 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     if (userId) {
       try {
         await setDoc(doc(db, 'users', userId, 'members', newId), sanitizeForFirestore(newMember));
+        useAuditStore.getState().addLog({
+          action: 'Created',
+          entity: 'Member',
+          entityId: newId,
+          details: `Added new member: ${newMember.name} (${newMember.role})`
+        });
       } catch (e) {
         console.warn('Could not add member to firestore:', e);
       }
@@ -309,6 +316,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   updateMember: async (id, memberUpdate) => {
     const { userId, members } = get();
+    const oldMember = members.find(m => m.id === id);
     const newMembers = members.map(m => m.id === id ? { ...m, ...memberUpdate } : m);
     set({ members: newMembers });
     
@@ -327,6 +335,12 @@ export const useOrgStore = create<OrgState>((set, get) => ({
               throw e;
             }
           }
+          useAuditStore.getState().addLog({
+            action: 'Updated',
+            entity: 'Member',
+            entityId: id,
+            details: `Updated details for ${memberToUpdate.name}`
+          });
         }
       } catch (e) {
         console.warn('Could not update member on firestore:', e);
@@ -336,6 +350,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   deleteMember: async (id) => {
     const { userId, members } = get();
+    const oldMember = members.find(m => m.id === id);
     const updatedMembers = members.filter(m => m.id !== id);
     set({ members: updatedMembers });
     
@@ -343,6 +358,12 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     if (userId) {
       try {
         await deleteDoc(doc(db, 'users', userId, 'members', id));
+        useAuditStore.getState().addLog({
+          action: 'Deleted',
+          entity: 'Member',
+          entityId: id,
+          details: `Deleted member: ${oldMember?.name || 'Unknown'}`
+        });
       } catch (e) {
         console.warn('Could not delete member on firestore:', e);
       }
@@ -499,30 +520,54 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        useAuditStore.getState().addLog({
+          action: 'Created',
+          entity: 'Admin User',
+          entityId: newUser.id,
+          details: `Added new admin/web user: ${newUser.name} (${newUser.role})`
+        });
       } catch (e) {}
     }
   },
   
   updateWebUser: async (id, updates) => {
     const { webUsers, userId } = get();
+    const oldUser = webUsers.find(u => u.id === id);
     const updated = webUsers.map(u => u.id === id ? { ...u, ...updates } : u);
     set({ webUsers: updated });
     
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        if (oldUser) {
+          useAuditStore.getState().addLog({
+            action: 'Updated',
+            entity: 'Admin User',
+            entityId: id,
+            details: `Updated details for admin/web user: ${oldUser.name}`
+          });
+        }
       } catch (e) {}
     }
   },
   
   removeWebUser: async (id) => {
     const { webUsers, userId } = get();
+    const oldUser = webUsers.find(u => u.id === id);
     const updated = webUsers.filter(u => u.id !== id);
     set({ webUsers: updated });
     
     if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        if (oldUser) {
+          useAuditStore.getState().addLog({
+            action: 'Deleted',
+            entity: 'Admin User',
+            entityId: id,
+            details: `Removed admin/web user: ${oldUser.name}`
+          });
+        }
       } catch (e) {}
     }
   }

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building, Users, Calendar, Megaphone, 
   IdCard, Settings, LogOut, Heart, Shield,
   MessageSquare, FileText, Briefcase, Activity, HardDrive,
-  ExternalLink, Globe, Sparkles, HeartHandshake
+  ExternalLink, Globe, Sparkles, HeartHandshake, ClipboardList
 } from 'lucide-react';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
@@ -79,6 +79,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
       title: 'Management & Files',
       items: [
         ...(isMasterAdmin ? [{ name: 'System Users', path: '/admin/system-users', icon: Shield }] : []),
+        ...(isMasterAdmin ? [{ name: 'Audit Logs', path: '/admin/audit-logs', icon: ClipboardList }] : []),
         { name: 'Transparency', path: '/admin/transparency', icon: Activity },
         ...(isMasterAdmin ? [
           { name: 'Organization', path: '/admin/org-settings', icon: Building },
@@ -111,7 +112,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
             </span>
             <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-2">
               Admin Workspace
-              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V27</span>
+              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V28</span>
             </span>
           </div>
         </Link>

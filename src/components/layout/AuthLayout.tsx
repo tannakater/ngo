@@ -59,7 +59,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       }
     } catch (err: any) {
       console.error('Email sign in failure:', err);
-      setErrorMessage(err?.message || 'Invalid email or password. Please try again.');
+      let msg = err?.message || 'Invalid email or password. Please try again.';
+      if (msg.includes('auth/')) {
+        msg = 'Invalid email or password. Please try again.';
+      } else if (msg.includes('Firebase')) {
+        msg = msg.replace(/Firebase:?\s*/i, '').replace(/\(auth\/.*\)/i, '').trim();
+      }
+      setErrorMessage(msg);
     } finally {
       setSubmitting(false);
     }
@@ -102,7 +108,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                     <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">Authentication error</h3>
+                    <h3 className="text-sm font-medium text-red-800">Login failed</h3>
                     <div className="mt-2 text-sm text-red-700">
                       <p>{errorMessage}</p>
                     </div>

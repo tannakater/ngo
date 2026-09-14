@@ -109,7 +109,7 @@ export function AdminDonations() {
 
   const handleManualSync = () => {
     setIsSyncing(true);
-    setSyncNotice('Connecting to Cloud Firestore & syncing data...');
+    setSyncNotice('Connecting to cloud database & syncing data...');
     try {
       initDonationsSync();
       setTimeout(() => {
@@ -479,10 +479,10 @@ ${org.website || window.location.origin}
             onClick={handleManualSync}
             disabled={isSyncing}
             className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
-            title="Sync live records from Firebase Firestore"
+            title="Sync live records from the server"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-600' : ''}`} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync Cloud'}</span>
+            <span>{isSyncing ? 'Syncing...' : 'Sync Server'}</span>
           </button>
           <button
             type="button"

@@ -159,8 +159,7 @@ export function SystemUsers() {
             {webUsers.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-6 py-8 text-center text-sm text-slate-500">
-                  No system users added yet. Anyone with Firebase access can log in. 
-                  Add users here to restrict access and assign roles.
+                  No system users added yet. Add users here to restrict access and assign roles.
                 </td>
               </tr>
             )}

@@ -35,6 +35,7 @@ import { AdminMessages } from './pages/admin/Messages';
 import { AdminTransparency } from './pages/admin/Transparency';
 import { AdminSettings } from './pages/admin/Settings';
 import { SystemUsers } from './pages/admin/SystemUsers';
+import { AuditLogs } from './pages/admin/AuditLogs';
 
 export default function App() {
   const syncNgoWithUser = useNgoStore(state => state.syncNgoWithUser);
@@ -80,6 +81,7 @@ export default function App() {
 
           <Route path="events" element={<AdminEvents />} />
           <Route path="system-users" element={<SystemUsers />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="content" element={<AdminContent />} />
           <Route path="messages" element={<AdminMessages />} />
           <Route path="transparency" element={<AdminTransparency />} />
