@@ -81,17 +81,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          {organization.logoUrl && !organization.logoUrl.includes('photo-1582213782179') ? (
+          <div className="flex justify-center mb-2">
             <img 
-              src={organization.logoUrl} 
-              alt={organization.name || 'Logo'} 
-              className="mx-auto h-12 w-auto object-contain rounded-md" 
+              src="/daksheba.jpg" 
+              alt="Logo" 
+              className="h-14 w-14 rounded-full object-cover shadow-md border-2 border-slate-200" 
             />
-          ) : (
-            <div className="mx-auto h-12 w-12 bg-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-          )}
+          </div>
           <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-slate-900">
             Sign in to your account
           </h2>

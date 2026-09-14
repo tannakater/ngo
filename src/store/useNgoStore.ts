@@ -143,6 +143,7 @@ export interface NgoState {
   deleteNews: (id: string) => Promise<void>;
   addDonation: (donation: Omit<Donation, 'id' | 'receiptNumber' | 'createdAt'>) => Promise<Donation>;
   updateDonation: (id: string, donation: Partial<Donation>) => Promise<void>;
+  approveDonation: (id: string, officer: { name: string; role: string }) => Promise<Donation | null>;
   deleteDonation: (id: string) => Promise<void>;
   addMessage: (message: Omit<ContactMessage, 'id' | 'isRead' | 'createdAt'>) => Promise<void>;
   markMessageRead: (id: string) => Promise<void>;
@@ -447,6 +448,37 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     } catch (e) {
       console.warn('Could not update donation on collection:', e);
     }
+  },
+  approveDonation: async (id, officer) => {
+    const don = get().donations.find(d => d.id === id);
+    if (!don) return null;
+    const updatedDon: Donation = {
+      ...don,
+      status: 'Completed',
+      approvedBy: officer.name,
+      approverRole: officer.role,
+      receiptSent: true
+    };
+    const updated = get().donations.map(d => d.id === id ? updatedDon : d);
+    set({ donations: updated });
+    try {
+      await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon));
+      // Also update campaign currentAmount if campaign is matched
+      const campaign = get().campaigns.find(c => isCampaignMatch(c, updatedDon.campaignId, updatedDon.campaignName));
+      if (campaign) {
+        const newCurrent = (campaign.currentAmount || 0) + updatedDon.amount;
+        const newDonors = (campaign.donorsCount || 0) + 1;
+        await updateDoc(doc(db, 'campaigns', campaign.id), {
+          currentAmount: newCurrent,
+          donorsCount: newDonors
+        });
+        const updatedCampaigns = get().campaigns.map(c => c.id === campaign.id ? { ...c, currentAmount: newCurrent, donorsCount: newDonors } : c);
+        set({ campaigns: updatedCampaigns });
+      }
+    } catch (e) {
+      console.warn('Could not approve donation on collection:', e);
+    }
+    return updatedDon;
   },
   deleteDonation: async (id) => {
     const updated = get().donations.filter(d => d.id !== id);
