@@ -36,13 +36,7 @@ export function PublicLayout() {
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
-              {organization.logoUrl ? (
-                <img src={organization.logoUrl} alt="Logo" className="h-10 w-10 object-contain" />
-              ) : (
-                <div className="h-10 w-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/30">
-                  {organization.name?.charAt(0) || 'N'}
-                </div>
-              )}
+              <img src="/daksheba.jpg" alt="Logo" className="h-10 w-10 rounded-full object-cover shadow-sm border border-slate-200" />
               <span className="font-bold text-xl text-slate-900 tracking-tight">
                 {organization.name || 'Global Hope NGO'}
               </span>

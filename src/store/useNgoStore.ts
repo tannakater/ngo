@@ -432,19 +432,19 @@ let unsubscribers: (() => void)[] = [];
 
 export const useNgoStore = create<NgoState>((set, get) => ({
   userId: null,
-  projects: initialProjects,
-  campaigns: initialCampaigns,
-  volunteers: initialVolunteers,
-  events: initialEvents,
-  news: initialNews,
-  donations: initialDonations,
-  messages: initialMessages,
-  documents: initialDocuments,
+  projects: [],
+  campaigns: [],
+  volunteers: [],
+  events: [],
+  news: [],
+  donations: [],
+  messages: [],
+  documents: [],
   stats: {
-    peopleHelped: "52,400+",
-    volunteers: "1,250+",
-    projectsCompleted: "48",
-    fundsRaised: "$2.65M",
+    peopleHelped: "0+",
+    volunteers: "0+",
+    projectsCompleted: "0",
+    fundsRaised: "$0",
   },
 
   syncNgoWithUser: async (userId: string) => {

@@ -105,13 +105,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
       {/* Brand Header */}
       <div className="flex h-16 shrink-0 items-center justify-between px-5 bg-slate-950/60 border-b border-slate-800/80">
         <Link to="/admin" className="flex items-center gap-3 overflow-hidden group">
-          {organization.logoUrl ? (
-            <img src={organization.logoUrl} alt="Logo" className="h-9 w-9 object-contain rounded-lg shrink-0 bg-white/10 p-0.5" />
-          ) : (
-            <div className="h-9 w-9 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-xl flex items-center justify-center text-white font-black text-lg shrink-0 shadow-md shadow-emerald-500/20">
-              {organization.name?.charAt(0) || 'N'}
-            </div>
-          )}
+          <img src="/daksheba.jpg" alt="Logo" className="h-9 w-9 object-cover rounded-lg shrink-0 border border-slate-700" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-bold text-white truncate tracking-tight group-hover:text-emerald-400 transition-colors">
               {organization.name || 'NGO Platform'}
