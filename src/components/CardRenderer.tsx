@@ -180,10 +180,10 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
         {/* Profile Photo - Properly centered & passport framed */}
         <div style={{
           position: 'absolute',
-          left: `${s((actualWidth - 24) / 2)}px`,
-          top: `${s(20)}px`,
-          width: `${s(24)}px`,
-          height: `${s(30)}px`,
+          left: `${s((actualWidth - 21) / 2)}px`,
+          top: `${s(18.5)}px`,
+          width: `${s(21)}px`,
+          height: `${s(26.25)}px`,
           borderRadius: `${s(2)}px`,
           backgroundColor: '#f8fafc',
           zIndex: 10,
@@ -266,7 +266,7 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
         {/* Member Name and Designation */}
         <div style={{ 
           position: 'absolute', 
-          top: `${s(51.2)}px`, 
+          top: `${s(46.8)}px`, 
           left: 0, 
           right: 0, 
           textAlign: 'center', 
@@ -274,7 +274,7 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
           padding: `0 ${s(2)}px` 
         }}>
           <div style={{ 
-            fontSize: `${s(2.7)}px`, 
+            fontSize: `${s(3.4)}px`, 
             fontWeight: 800, 
             color: '#0f172a', 
             lineHeight: 1.15, 
@@ -289,18 +289,19 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
-            marginTop: `${s(0.4)}px`,
-            padding: `${s(0.25)}px ${s(2.2)}px`,
+            marginTop: `${s(0.5)}px`,
+            padding: `${s(0.5)}px ${s(2.5)}px`,
             backgroundColor: isVolunteer ? '#ecfdf5' : isStaff ? '#eff6ff' : '#f8fafc',
             border: `${s(0.3)}px solid ${isVolunteer ? '#a7f3d0' : isStaff ? '#bfdbfe' : '#e2e8f0'}`,
             borderRadius: `${s(10)}px`,
           }}>
             <span style={{ 
-              fontSize: `${s(1.4)}px`, 
+              fontSize: `${s(1.8)}px`, 
               fontWeight: 800, 
               color: isVolunteer ? '#047857' : isStaff ? '#1d4ed8' : '#334155', 
               textTransform: 'uppercase', 
-              letterSpacing: '0.4px' 
+              letterSpacing: '0.4px',
+              lineHeight: 1.2
             }}>
               {member.designation || member.role || 'Volunteer'}
             </span>
@@ -316,35 +317,28 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
           zIndex: 10,
           backgroundColor: '#f8fafc',
           borderRadius: `${s(1.6)}px`,
-          padding: `${s(0.8)}px ${s(1.5)}px`,
+          padding: `${s(1)}px ${s(1.5)}px`,
           border: `${s(0.25)}px solid #e2e8f0`,
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${s(1.55)}px`, color: '#334155' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: `${s(1.8)}px`, color: '#334155' }}>
             <tbody>
               {memberId && (
                 <tr>
-                  <td style={{ fontWeight: 700, padding: `${s(0.25)}px 0`, color: '#64748b', width: '30%' }}>ID No</td>
+                  <td style={{ fontWeight: 700, padding: `${s(0.35)}px 0`, color: '#64748b', width: '30%' }}>ID No</td>
                   <td style={{ fontWeight: 700, color: '#94a3b8', width: '6%' }}>:</td>
-                  <td style={{ fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', fontSize: `${s(1.65)}px` }}>{memberId}</td>
-                </tr>
-              )}
-              {department && (
-                <tr>
-                  <td style={{ fontWeight: 700, padding: `${s(0.25)}px 0`, color: '#64748b' }}>Dept</td>
-                  <td style={{ fontWeight: 700, color: '#94a3b8' }}>:</td>
-                  <td style={{ fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{department}</td>
+                  <td style={{ fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', fontSize: `${s(2.1)}px` }}>{memberId}</td>
                 </tr>
               )}
               {bloodGroup && (
                 <tr>
-                  <td style={{ fontWeight: 700, padding: `${s(0.25)}px 0`, color: '#64748b' }}>Blood</td>
+                  <td style={{ fontWeight: 700, padding: `${s(0.35)}px 0`, color: '#64748b' }}>Blood</td>
                   <td style={{ fontWeight: 700, color: '#94a3b8' }}>:</td>
                   <td style={{ fontWeight: 800, color: '#dc2626' }}>{bloodGroup}</td>
                 </tr>
               )}
               {phone && (
                 <tr>
-                  <td style={{ fontWeight: 700, padding: `${s(0.25)}px 0`, color: '#64748b' }}>Phone</td>
+                  <td style={{ fontWeight: 700, padding: `${s(0.35)}px 0`, color: '#64748b' }}>Phone</td>
                   <td style={{ fontWeight: 700, color: '#94a3b8' }}>:</td>
                   <td style={{ fontWeight: 700, color: '#1e293b' }}>{phone}</td>
                 </tr>
@@ -368,7 +362,7 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
     );
   } else {
     // BACK OF ID CARD
-    const qrSize = 14;
+    const qrSize = 16;
     return (
       <div style={bgStyle}>
         {/* Back Header Strip with Organization Logo & Name */}
@@ -411,7 +405,7 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
           </div>
           <div style={{
             color: '#FFFFFF',
-            fontSize: `${s(1.4)}px`,
+            fontSize: `${s(1.7)}px`,
             fontWeight: 800,
             letterSpacing: '0.2px',
             whiteSpace: 'nowrap',
@@ -423,19 +417,19 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
         </div>
 
         {/* Content Container */}
-        <div style={{ position: 'absolute', top: `${s(7)}px`, left: `${s(3.5)}px`, right: `${s(3.5)}px`, zIndex: 10 }}>
+        <div style={{ position: 'absolute', top: `${s(8)}px`, left: `${s(4)}px`, right: `${s(4)}px`, zIndex: 10 }}>
           
           {/* Barcode Area on Back */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: `${s(2)}px` }}>
-            <Barcode value={memberId} width={1.15} height={s(6.2)} fontSize={s(3.1)} margin={0} displayValue={true} background="transparent" lineColor="#0f172a" />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: `${s(3)}px` }}>
+            <Barcode value={memberId} width={1.4} height={s(7)} fontSize={s(3.5)} margin={0} displayValue={true} background="transparent" lineColor="#0f172a" />
           </div>
           
-          <div style={{ borderBottom: `1px solid ${primaryColor}`, paddingBottom: `${s(0.3)}px`, marginBottom: `${s(0.8)}px` }}>
-            <h3 style={{ fontSize: `${s(1.65)}px`, fontWeight: 800, color: '#1E293B', margin: 0 }}>Official Contact / Return Address</h3>
+          <div style={{ borderBottom: `1px solid ${primaryColor}`, paddingBottom: `${s(0.5)}px`, marginBottom: `${s(1.5)}px` }}>
+            <h3 style={{ fontSize: `${s(2.4)}px`, fontWeight: 800, color: '#1E293B', margin: 0 }}>Official Contact / Return Address</h3>
           </div>
-          <div style={{ fontSize: `${s(1.3)}px`, color: '#475569', lineHeight: 1.4, fontWeight: 500, marginBottom: `${s(1.5)}px` }}>
-            <div style={{ fontWeight: 700, color: '#1E293B', marginBottom: `${s(0.3)}px` }}>If found, please return to:</div>
-            {organization.name && <div style={{ fontWeight: 600 }}>{organization.name}</div>}
+          <div style={{ fontSize: `${s(2)}px`, color: '#475569', lineHeight: 1.6, fontWeight: 500, marginBottom: `${s(1.5)}px` }}>
+            <div style={{ fontWeight: 800, color: '#1E293B', marginBottom: `${s(0.5)}px` }}>If found, please return to:</div>
+            {organization.name && <div style={{ fontWeight: 700 }}>{organization.name}</div>}
             {organization.address && <div>{organization.address}</div>}
             {organization.phone && <div>📞 {organization.phone}</div>}
             {organization.email && <div>✉️ {organization.email}</div>}
@@ -471,11 +465,11 @@ export function CardRenderer({ template, member, organization, side, scale = 1 }
         {/* Mini Scan label */}
         <div style={{
           position: 'absolute',
-          bottom: `${s(4)}px`,
+          bottom: `${s(3.5)}px`,
           left: 0,
           right: 0,
           textAlign: 'center',
-          fontSize: `${s(1.1)}px`,
+          fontSize: `${s(1.3)}px`,
           fontWeight: 700,
           color: '#64748b',
           letterSpacing: '0.4px',

@@ -298,13 +298,21 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Blood Group</label>
-              <input 
-                type="text" 
-                placeholder="e.g. O+, A+, B+"
+              <select
+                className="w-full border border-slate-200 rounded-xl shadow-sm text-xs p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50"
                 value={formData.bloodGroup} 
-                onChange={e => setFormData({...formData, bloodGroup: e.target.value})} 
-                className="w-full border border-slate-200 rounded-xl shadow-sm text-xs p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
-              />
+                onChange={e => setFormData({...formData, bloodGroup: e.target.value})}
+              >
+                <option value="">Select Blood Group</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-slate-700 mb-1">Date of Birth</label>

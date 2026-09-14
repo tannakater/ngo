@@ -4,7 +4,7 @@ import { useOrgStore } from '../store/useOrgStore';
 import { CheckSquare, Square, Printer, Download, X, Loader2 } from 'lucide-react';
 import { cn } from '../utils';
 import { CardRenderer } from '../components/CardRenderer';
-import html2canvas from 'html2canvas';
+import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 type ExportFormat = 'pdf' | 'png' | 'jpg';
@@ -42,33 +42,43 @@ export function PrintCenter() {
     
     try {
       const scaleMap = {
-        web: 1.5,
-        high: 3,
-        print: 5
+        web: 2,
+        high: 4,
+        print: 6
       };
       
-      const canvas = await html2canvas(printRef.current, {
-        scale: scaleMap[exportQuality],
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
+      const pixelRatio = scaleMap[exportQuality];
+      const exportOptions = {
+        pixelRatio,
+        backgroundColor: '#ffffff',
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        }
+      };
       
       if (exportFormat === 'pdf') {
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgData = await toJpeg(printRef.current, exportOptions);
+        
+        // Calculate dimensions manually or use a standard A4 assumption
+        // Since we are capturing the whole PrintCenter layout (which is styled as A4)
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
           format: 'a4'
         });
         
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const pdfWidth = 210; // A4 width in mm
+        // Calculate height based on A4 ratio to maintain aspect ratio perfectly
+        const pdfHeight = 297; 
         
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`${organization.shortName}-ID-Cards.pdf`);
       } else {
         const mimeType = exportFormat === 'png' ? 'image/png' : 'image/jpeg';
-        const imgData = canvas.toDataURL(mimeType, 1.0);
+        const imgData = exportFormat === 'png' 
+          ? await toPng(printRef.current, exportOptions)
+          : await toJpeg(printRef.current, exportOptions);
         
         const link = document.createElement('a');
         link.href = imgData;
@@ -269,22 +279,23 @@ export function PrintCenter() {
             </div>
           ) : (
             <div 
-              ref={printRef}
-              className="bg-white shadow-xl max-w-[210mm] w-full p-[10mm] flex flex-wrap gap-4 print:shadow-none print:m-0 print:p-0"
-              style={{ minHeight: '297mm' }}
+              className="bg-white max-w-[210mm] w-full p-[10mm] flex flex-wrap gap-4 print:m-0 print:p-0"
+              style={{ minHeight: '297mm', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
             >
-              {/* This mimics an A4 sheet layout for printing */}
-              {Array.from(selectedMemberIds).map(id => {
-                const member = members.find(m => m.id === id);
-                if (!member) return null;
-                
-                return (
-                  <div key={id} className="flex gap-4 border border-slate-300 border-dashed p-2 print:border-none print:p-0 page-break-inside-avoid">
-                    <CardRenderer template={template} member={member} organization={organization} side="front" scale={1} />
-                    <CardRenderer template={template} member={member} organization={organization} side="back" scale={1} />
-                  </div>
-                )
-              })}
+              <div ref={printRef} className="w-full flex flex-wrap gap-4">
+                {/* This mimics an A4 sheet layout for printing */}
+                {Array.from(selectedMemberIds).map(id => {
+                  const member = members.find(m => m.id === id);
+                  if (!member) return null;
+                  
+                  return (
+                    <div key={id} className="flex gap-4 border border-slate-300 border-dashed p-2 print:border-none print:p-0 page-break-inside-avoid bg-white">
+                      <CardRenderer template={template} member={member} organization={organization} side="front" scale={1} />
+                      <CardRenderer template={template} member={member} organization={organization} side="back" scale={1} />
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

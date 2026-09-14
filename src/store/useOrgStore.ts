@@ -36,6 +36,8 @@ interface OrgState {
 
 export const DEFAULT_OFFICIAL_LOGO_SVG = "/daksheba.jpg";
 
+const sanitizeForFirestore = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
+
 const defaultOrganization: Organization = {
   id: 'org-1',
   name: 'DakSeba Foundation',

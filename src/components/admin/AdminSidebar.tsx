@@ -109,8 +109,9 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
             <span className="text-sm font-bold text-white truncate tracking-tight group-hover:text-emerald-400 transition-colors">
               {organization.name || 'NGO Platform'}
             </span>
-            <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-1">
+            <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-2">
               Admin Workspace
+              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V25</span>
             </span>
           </div>
         </Link>
