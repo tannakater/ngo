@@ -273,39 +273,6 @@ export function Verify() {
               <UserCheck className="w-4 h-4" /> Verify Credential
             </button>
           </form>
-
-          {/* Quick Demo ID pills */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span className="font-medium text-slate-400">Quick Test Records:</span>
-            {members.slice(0, 3).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setIdInput(m.memberId);
-                  setSearchedId(m.memberId);
-                  setSearchParams({ id: m.memberId });
-                }}
-                className="bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 px-2.5 py-1 rounded-lg font-mono font-bold transition-colors cursor-pointer"
-              >
-                {m.memberId} ({m.firstName})
-              </button>
-            ))}
-            {donations && donations.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIdInput(donations[0].receiptNumber);
-                  setSearchedId(donations[0].receiptNumber);
-                  setSearchParams({ receipt: donations[0].receiptNumber });
-                }}
-                className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg font-mono font-bold transition-colors hover:bg-emerald-100 flex items-center gap-1 cursor-pointer"
-              >
-                <Receipt className="w-3 h-3" />
-                {donations[0].receiptNumber} (Receipt)
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Verification Result */}

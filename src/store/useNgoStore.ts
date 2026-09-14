@@ -452,19 +452,9 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     unsubscribers.forEach(u => u());
     unsubscribers = [];
 
-    const setupCollectionSync = async (colName: string, initialData: any[], stateKey: keyof NgoState) => {
+    const setupCollectionSync = async (colName: string, stateKey: keyof NgoState) => {
       const colRef = collection(db, colName);
       try {
-        const snap = await getDocs(colRef);
-        if (snap.empty) {
-          for (const item of initialData) {
-            try {
-              await setDoc(doc(colRef, item.id), sanitizeForFirestore(item));
-            } catch (err) {
-              // Ignore offline write errors
-            }
-          }
-        }
         const unsub = onSnapshot(colRef, (snapshot) => {
           const items: any[] = [];
           snapshot.forEach(d => items.push(d.data()));
@@ -474,18 +464,18 @@ export const useNgoStore = create<NgoState>((set, get) => ({
         });
         unsubscribers.push(unsub);
       } catch (e: any) {
-        console.warn(`Could not sync collection ${colName} (operating in offline fallback mode):`, e?.message);
+        console.warn(`Could not sync collection ${colName}:`, e?.message);
       }
     };
 
-    await setupCollectionSync('projects', initialProjects, 'projects');
-    await setupCollectionSync('campaigns', initialCampaigns, 'campaigns');
-    await setupCollectionSync('volunteers', initialVolunteers, 'volunteers');
-    await setupCollectionSync('events', initialEvents, 'events');
-    await setupCollectionSync('news', initialNews, 'news');
-    await setupCollectionSync('donations', initialDonations, 'donations');
-    await setupCollectionSync('messages', initialMessages, 'messages');
-    await setupCollectionSync('documents', initialDocuments, 'documents');
+    await setupCollectionSync('projects', 'projects');
+    await setupCollectionSync('campaigns', 'campaigns');
+    await setupCollectionSync('volunteers', 'volunteers');
+    await setupCollectionSync('events', 'events');
+    await setupCollectionSync('news', 'news');
+    await setupCollectionSync('donations', 'donations');
+    await setupCollectionSync('messages', 'messages');
+    await setupCollectionSync('documents', 'documents');
 
     // Stats doc
     try {
