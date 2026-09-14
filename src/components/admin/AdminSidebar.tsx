@@ -39,9 +39,18 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
 
   const sections: NavSection[] = [
     {
-      title: 'Dashboard',
+      title: 'Core & Fundraising',
       items: [
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+        { 
+          name: 'Donations', 
+          path: '/admin/donations', 
+          icon: Heart,
+          badge: pendingDonationsCount > 0 ? pendingDonationsCount : undefined,
+          badgeColor: 'bg-amber-500 text-white'
+        },
+        { name: 'Campaigns', path: '/admin/campaigns', icon: Megaphone },
+        { name: 'Programs', path: '/admin/programs', icon: Briefcase },
       ]
     },
     {
@@ -56,12 +65,21 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
           badgeColor: 'bg-amber-500 text-white font-bold'
         },
         ...(isMasterAdmin ? [{ name: 'ID Cards', path: '/admin/id-cards', icon: IdCard }] : []),
+        { name: 'Events', path: '/admin/events', icon: Calendar },
       ]
     },
     {
-      title: 'Management & Settings',
+      title: 'Communications',
+      items: [
+        { name: 'News & Stories', path: '/admin/content', icon: FileText },
+        { name: 'Messages', path: '/admin/messages', icon: MessageSquare },
+      ]
+    },
+    {
+      title: 'Management & Files',
       items: [
         ...(isMasterAdmin ? [{ name: 'System Users', path: '/admin/system-users', icon: Shield }] : []),
+        { name: 'Transparency', path: '/admin/transparency', icon: Activity },
         ...(isMasterAdmin ? [
           { name: 'Organization', path: '/admin/org-settings', icon: Building },
           { name: 'Settings', path: '/admin/settings', icon: Settings }
