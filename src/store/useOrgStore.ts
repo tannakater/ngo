@@ -300,7 +300,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
           action: 'Created',
           entity: 'Member',
           entityId: newId,
-          details: `Added new member: ${newMember.name} (${newMember.role})`
+          details: `Added new member: ${newMember.firstName} ${newMember.lastName} (${newMember.role})`
         });
       } catch (e) {
         console.warn('Could not add member to firestore:', e);
@@ -339,7 +339,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
             action: 'Updated',
             entity: 'Member',
             entityId: id,
-            details: `Updated details for ${memberToUpdate.name}`
+            details: `Updated details for ${memberToUpdate.firstName} ${memberToUpdate.lastName}`
           });
         }
       } catch (e) {
@@ -362,7 +362,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
           action: 'Deleted',
           entity: 'Member',
           entityId: id,
-          details: `Deleted member: ${oldMember?.name || 'Unknown'}`
+          details: `Deleted member: ${oldMember ? oldMember.firstName + ' ' + oldMember.lastName : 'Unknown'}`
         });
       } catch (e) {
         console.warn('Could not delete member on firestore:', e);
