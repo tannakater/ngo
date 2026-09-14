@@ -24,7 +24,7 @@ import { Templates } from './pages/Templates';
 import { OrgSettings } from './pages/OrgSettings';
 import { PrintCenter } from './pages/PrintCenter';
 import { Generator } from './pages/Generator';
-import { DriveFolderManager } from './components/DriveFolderManager';
+import React from 'react';
 
 import { AdminPrograms } from './pages/admin/Programs';
 import { AdminCampaigns } from './pages/admin/Campaigns';
@@ -64,7 +64,6 @@ export default function App() {
         <Route path="/admin" element={<AuthLayout><AdminLayout /></AuthLayout>}>
           <Route index element={<Dashboard />} />
           <Route path="org-settings" element={<OrgSettings />} />
-          <Route path="drive" element={<div className="max-w-4xl mx-auto"><DriveFolderManager /></div>} />
           <Route path="people" element={<Members initialTab="all" />} />
           <Route path="volunteers" element={<Members initialTab="volunteers" />} />
           <Route path="programs" element={<AdminPrograms />} />

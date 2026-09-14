@@ -1,15 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useOrgStore } from '../store/useOrgStore';
-import { Building2, Save, UploadCloud, Loader2, HardDrive, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Building2, Save, UploadCloud, Loader2, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import { uploadImage } from '../lib/storage';
-import { DriveFolderManager } from '../components/DriveFolderManager';
 
 export function OrgSettings() {
   const { organization, updateOrganization, userId } = useOrgStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'drive'>('profile');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [formData, setFormData] = useState({ ...organization });
@@ -67,38 +65,10 @@ export function OrgSettings() {
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Organization & Drive Settings</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Organization Settings</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Configure your organization's primary details and manage the organized Google Drive file storage system.
+            Configure your organization's primary details, contact info, and branding assets.
           </p>
-        </div>
-
-        {/* Tab switchers */}
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'profile'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            General Profile
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('drive')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'drive'
-                ? 'bg-white text-emerald-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <HardDrive className="w-4 h-4 text-emerald-600" />
-            Drive Storage (/NGO)
-          </button>
         </div>
       </div>
 
@@ -119,10 +89,7 @@ export function OrgSettings() {
         </div>
       )}
 
-      {activeTab === 'drive' ? (
-        <DriveFolderManager />
-      ) : (
-        <form onSubmit={handleSave} className="space-y-8 divide-y divide-slate-200">
+      <form onSubmit={handleSave} className="space-y-8 divide-y divide-slate-200">
 
         <div className="space-y-6 sm:space-y-5">
           <div className="bg-white shadow-sm ring-1 ring-slate-200 rounded-xl p-6 sm:p-8">
@@ -416,7 +383,6 @@ export function OrgSettings() {
           </button>
         </div>
       </form>
-      )}
     </div>
   );
 }
