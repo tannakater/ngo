@@ -39,18 +39,9 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
 
   const sections: NavSection[] = [
     {
-      title: 'Core & Fundraising',
+      title: 'Dashboard',
       items: [
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-        { 
-          name: 'Donations', 
-          path: '/admin/donations', 
-          icon: Heart,
-          badge: pendingDonationsCount > 0 ? pendingDonationsCount : undefined,
-          badgeColor: 'bg-amber-500 text-white'
-        },
-        { name: 'Campaigns', path: '/admin/campaigns', icon: Megaphone },
-        { name: 'Programs', path: '/admin/programs', icon: Briefcase },
       ]
     },
     {
@@ -65,21 +56,12 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
           badgeColor: 'bg-amber-500 text-white font-bold'
         },
         ...(isMasterAdmin ? [{ name: 'ID Cards', path: '/admin/id-cards', icon: IdCard }] : []),
-        { name: 'Events', path: '/admin/events', icon: Calendar },
       ]
     },
     {
-      title: 'Communications',
-      items: [
-        { name: 'News & Stories', path: '/admin/content', icon: FileText },
-        { name: 'Messages', path: '/admin/messages', icon: MessageSquare },
-      ]
-    },
-    {
-      title: 'Management & Files',
+      title: 'Management & Settings',
       items: [
         ...(isMasterAdmin ? [{ name: 'System Users', path: '/admin/system-users', icon: Shield }] : []),
-        { name: 'Transparency', path: '/admin/transparency', icon: Activity },
         ...(isMasterAdmin ? [
           { name: 'Organization', path: '/admin/org-settings', icon: Building },
           { name: 'Settings', path: '/admin/settings', icon: Settings }
@@ -111,7 +93,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
             </span>
             <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-2">
               Admin Workspace
-              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V25</span>
+              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V27</span>
             </span>
           </div>
         </Link>

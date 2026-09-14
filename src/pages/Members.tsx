@@ -56,12 +56,6 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
     const matchesRole = roleFilter === 'All' || member.role === roleFilter;
     const matchesStatus = statusFilter === 'All' || member.status === statusFilter;
 
-    // Explicitly hide pending volunteer requests from the main Members view 
-    // (since they have their own dedicated "Volunteer Requests" tab)
-    if (initialTab !== 'volunteers' && member.status === 'Pending' && (member.role === 'Volunteer' || member.designation?.toLowerCase().includes('applicant'))) {
-      return false;
-    }
-
     let matchesIdStatus = true;
     if (idStatusFilter === 'Issued') {
       matchesIdStatus = Boolean(member.idCardGenerated && !member.needsRegeneration);
