@@ -79,7 +79,6 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
       title: 'Management & Files',
       items: [
         ...(isMasterAdmin ? [{ name: 'System Users', path: '/admin/system-users', icon: Shield }] : []),
-        ...(isMasterAdmin ? [{ name: 'Drive Storage', path: '/admin/drive', icon: HardDrive }] : []),
         { name: 'Transparency', path: '/admin/transparency', icon: Activity },
         ...(isMasterAdmin ? [
           { name: 'Organization', path: '/admin/org-settings', icon: Building },
