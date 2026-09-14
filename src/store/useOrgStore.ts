@@ -397,7 +397,10 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const newOrg = { ...organization, ...orgUpdate, logoUrl: DEFAULT_OFFICIAL_LOGO_SVG };
     set({ organization: newOrg });
     
-    
+    try {
+      localStorage.setItem('ngo_org_profile', JSON.stringify(newOrg));
+    } catch (e) {}
+
     if (userId) {
       try {
         const userDocRef = doc(db, 'users', userId);
