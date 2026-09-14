@@ -271,7 +271,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const proj = updated.find(p => p.id === id);
       if (proj) {
-        await updateDoc(doc(db, 'projects', id), sanitizeForFirestore(proj));
+        await updateDoc(doc(db, 'projects', id), sanitizeForFirestore(proj) as any);
       }
     } catch (e) {
       console.warn('Could not update project on collection:', e);
@@ -303,7 +303,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const camp = updated.find(c => c.id === id);
       if (camp) {
-        await updateDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp));
+        await updateDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp) as any);
       }
     } catch (e) {
       console.warn('Could not update campaign on collection:', e);
@@ -335,7 +335,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const vol = updated.find(v => v.id === id);
       if (vol) {
-        await updateDoc(doc(db, 'volunteers', id), sanitizeForFirestore(vol));
+        await updateDoc(doc(db, 'volunteers', id), sanitizeForFirestore(vol) as any);
       }
     } catch (e) {
       console.warn('Could not update volunteer on collection:', e);
@@ -368,7 +368,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const ev = updated.find(e => e.id === id);
       if (ev) {
-        await updateDoc(doc(db, 'events', id), sanitizeForFirestore(ev));
+        await updateDoc(doc(db, 'events', id), sanitizeForFirestore(ev) as any);
       }
     } catch (e) {
       console.warn('Could not update event on collection:', e);
@@ -401,7 +401,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const item = updated.find(n => n.id === id);
       if (item) {
-        await updateDoc(doc(db, 'news', id), sanitizeForFirestore(item));
+        await updateDoc(doc(db, 'news', id), sanitizeForFirestore(item) as any);
       }
     } catch (e) {
       console.warn('Could not update news on collection:', e);
@@ -443,7 +443,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const don = updated.find(d => d.id === id);
       if (don) {
-        await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(don));
+        await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(don) as any);
       }
     } catch (e) {
       console.warn('Could not update donation on collection:', e);
@@ -462,7 +462,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     const updated = get().donations.map(d => d.id === id ? updatedDon : d);
     set({ donations: updated });
     try {
-      await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon));
+      await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any);
       // Also update campaign currentAmount if campaign is matched
       const campaign = get().campaigns.find(c => isCampaignMatch(c, updatedDon.campaignId, updatedDon.campaignName));
       if (campaign) {
@@ -546,7 +546,7 @@ export const useNgoStore = create<NgoState>((set, get) => ({
     try {
       const item = updated.find(d => d.id === id);
       if (item) {
-        await updateDoc(doc(db, 'documents', id), sanitizeForFirestore(item));
+        await updateDoc(doc(db, 'documents', id), sanitizeForFirestore(item) as any);
       }
     } catch (e) {
       console.warn('Could not update document on collection:', e);
