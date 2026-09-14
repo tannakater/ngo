@@ -394,7 +394,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   updateOrganization: async (orgUpdate) => {
     const { userId, organization } = get();
-    const newOrg = { ...organization, ...orgUpdate };
+    const newOrg = { ...organization, ...orgUpdate, logoUrl: DEFAULT_OFFICIAL_LOGO_SVG };
     set({ organization: newOrg });
     
     
