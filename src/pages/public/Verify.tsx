@@ -32,19 +32,16 @@ export function Verify() {
   const [copied, setCopied] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  
+  // Database states
+  const [isSearchingDb, setIsSearchingDb] = useState(false);
+  const [dbMember, setDbMember] = useState<any>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<any>(null);
 
-  useEffect(() => {
-    const q = getParamQuery();
-    if (q) {
-      setIdInput(q);
-      setSearchedId(q);
-    }
-  }, [searchParams]);
-
-  // Clean and parse query to handle raw IDs, full URLs, or query parameters
+  // Preserve case for exact matches in Firestore
   const parseQueryValue = (raw: string | null): string => {
     if (!raw) return '';
     let val = raw.trim();
@@ -58,10 +55,63 @@ export function Verify() {
       const match = val.match(/[?&]memberId=([^&]+)/);
       if (match) val = decodeURIComponent(match[1]);
     }
-    return val.trim().toLowerCase();
+    return val.trim();
   };
 
-  const cleanQuery = parseQueryValue(searchedId);
+  const exactQuery = parseQueryValue(searchedId);
+  const cleanQuery = exactQuery.toLowerCase();
+
+  useEffect(() => {
+    const q = getParamQuery();
+    if (q) {
+      setIdInput(q);
+      setSearchedId(q);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!exactQuery) {
+      setDbMember(null);
+      return;
+    }
+
+    const searchFirestore = async () => {
+      setIsSearchingDb(true);
+      try {
+        const { collectionGroup, getDocs, query, where, limit } = await import('firebase/firestore');
+        const { db } = await import('../../lib/firebase');
+        
+        // Exact case match
+        const q1 = query(collectionGroup(db, 'members'), where('memberId', '==', exactQuery), limit(1));
+        const snap1 = await getDocs(q1);
+        
+        if (!snap1.empty) {
+          setDbMember({ ...snap1.docs[0].data(), id: snap1.docs[0].id });
+        } else {
+          // If exact match fails, we can't do case-insensitive search easily in Firestore,
+          // but we can try uppercase since IDs are usually uppercase
+          const uppercaseQuery = exactQuery.toUpperCase();
+          if (uppercaseQuery !== exactQuery) {
+            const q2 = query(collectionGroup(db, 'members'), where('memberId', '==', uppercaseQuery), limit(1));
+            const snap2 = await getDocs(q2);
+            if (!snap2.empty) {
+              setDbMember({ ...snap2.docs[0].data(), id: snap2.docs[0].id });
+            } else {
+               setDbMember(null);
+            }
+          } else {
+             setDbMember(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Firestore member search failed:', err);
+      } finally {
+        setIsSearchingDb(false);
+      }
+    };
+
+    searchFirestore();
+  }, [exactQuery]);
 
   // Check in donation receipts first (e.g. REC-2026-...)
   const foundDonation = donations.find(d => 
@@ -70,12 +120,12 @@ export function Verify() {
     cleanQuery.includes(d.receiptNumber.toLowerCase())
   );
 
-  // Check in members list by memberId OR database id
-  const foundMember = !foundDonation ? members.find(m => 
+  // Check local members (if admin is logged in) or use the DB fetched member
+  const foundMember = dbMember || (!foundDonation ? members.find(m => 
     (m.memberId && m.memberId.toLowerCase() === cleanQuery) || 
     (m.id && m.id.toLowerCase() === cleanQuery) ||
     (m.memberId && cleanQuery.includes(m.memberId.toLowerCase()))
-  ) : null;
+  ) : null);
 
   // Check in volunteers list if not found
   const foundVolunteer = (!foundDonation && !foundMember) ? volunteers.find(v => 
@@ -392,6 +442,12 @@ export function Verify() {
                     </button>
                   </div>
                 </div>
+              </div>
+            ) : isSearchingDb ? (
+              <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center shadow-sm">
+                <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Searching Database...</h3>
+                <p className="text-sm text-slate-500">Please wait while we verify this credential securely.</p>
               </div>
             ) : isVerified ? (
               /* Verified Member / Volunteer Card */
