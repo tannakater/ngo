@@ -36,6 +36,7 @@ export function Verify() {
   // Database states
   const [isSearchingDb, setIsSearchingDb] = useState(false);
   const [dbMember, setDbMember] = useState<any>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -78,33 +79,100 @@ export function Verify() {
     const searchFirestore = async () => {
       setIsSearchingDb(true);
       try {
-        const { collectionGroup, getDocs, query, where, limit } = await import('firebase/firestore');
+        const { collection, getDocs, query, where, limit } = await import('firebase/firestore');
         const { db } = await import('../../lib/firebase');
         
-        // Exact case match
-        const q1 = query(collectionGroup(db, 'members'), where('memberId', '==', exactQuery), limit(1));
-        const snap1 = await getDocs(q1);
-        
-        if (!snap1.empty) {
-          setDbMember({ ...snap1.docs[0].data(), id: snap1.docs[0].id });
-        } else {
-          // If exact match fails, we can't do case-insensitive search easily in Firestore,
-          // but we can try uppercase since IDs are usually uppercase
-          const uppercaseQuery = exactQuery.toUpperCase();
+        let foundData: any = null;
+        let foundType: 'member' | 'volunteer' | 'donation' | null = null;
+        const uppercaseQuery = exactQuery.toUpperCase();
+
+        // 1. Search Members (Iterate through users to avoid collectionGroup index error)
+        const usersSnap = await getDocs(collection(db, 'users'));
+        for (const userDoc of usersSnap.docs) {
+          const membersRef = collection(db, 'users', userDoc.id, 'members');
+          
+          // Exact match
+          const q1 = query(membersRef, where('memberId', '==', exactQuery), limit(1));
+          const snap1 = await getDocs(q1);
+          if (!snap1.empty) {
+            foundData = { ...snap1.docs[0].data(), id: snap1.docs[0].id };
+            foundType = 'member';
+            break;
+          }
+          
+          // Uppercase match
           if (uppercaseQuery !== exactQuery) {
-            const q2 = query(collectionGroup(db, 'members'), where('memberId', '==', uppercaseQuery), limit(1));
+            const q2 = query(membersRef, where('memberId', '==', uppercaseQuery), limit(1));
             const snap2 = await getDocs(q2);
             if (!snap2.empty) {
-              setDbMember({ ...snap2.docs[0].data(), id: snap2.docs[0].id });
-            } else {
-               setDbMember(null);
+              foundData = { ...snap2.docs[0].data(), id: snap2.docs[0].id };
+              foundType = 'member';
+              break;
             }
-          } else {
-             setDbMember(null);
           }
         }
-      } catch (err) {
+
+        // 2. Search Volunteers
+        if (!foundData) {
+          const vq1 = query(collection(db, 'volunteers'), where('volunteerId', '==', exactQuery), limit(1));
+          const vsnap1 = await getDocs(vq1);
+          if (!vsnap1.empty) {
+            foundData = { ...vsnap1.docs[0].data(), id: vsnap1.docs[0].id };
+            foundType = 'volunteer';
+          } else if (uppercaseQuery !== exactQuery) {
+            const vq2 = query(collection(db, 'volunteers'), where('volunteerId', '==', uppercaseQuery), limit(1));
+            const vsnap2 = await getDocs(vq2);
+            if (!vsnap2.empty) {
+              foundData = { ...vsnap2.docs[0].data(), id: vsnap2.docs[0].id };
+              foundType = 'volunteer';
+            }
+          }
+        }
+
+        // 3. Search Donations
+        if (!foundData) {
+          const dq1 = query(collection(db, 'donations'), where('receiptNumber', '==', exactQuery), limit(1));
+          const dsnap1 = await getDocs(dq1);
+          if (!dsnap1.empty) {
+            foundData = { ...dsnap1.docs[0].data(), id: dsnap1.docs[0].id };
+            foundType = 'donation';
+          } else if (uppercaseQuery !== exactQuery) {
+            const dq2 = query(collection(db, 'donations'), where('receiptNumber', '==', uppercaseQuery), limit(1));
+            const dsnap2 = await getDocs(dq2);
+            if (!dsnap2.empty) {
+              foundData = { ...dsnap2.docs[0].data(), id: dsnap2.docs[0].id };
+              foundType = 'donation';
+            }
+          }
+        }
+
+        // 4. Search Public Volunteers
+        if (!foundData) {
+          const pvq1 = query(collection(db, 'public_volunteers'), where('memberId', '==', exactQuery), limit(1));
+          const pvsnap1 = await getDocs(pvq1);
+          if (!pvsnap1.empty) {
+            foundData = { ...pvsnap1.docs[0].data(), id: pvsnap1.docs[0].id };
+            foundType = 'member';
+          } else if (uppercaseQuery !== exactQuery) {
+            const pvq2 = query(collection(db, 'public_volunteers'), where('memberId', '==', uppercaseQuery), limit(1));
+            const pvsnap2 = await getDocs(pvq2);
+            if (!pvsnap2.empty) {
+              foundData = { ...pvsnap2.docs[0].data(), id: pvsnap2.docs[0].id };
+              foundType = 'member';
+            }
+          }
+        }
+
+        if (foundData) {
+          setDbMember({ ...foundData, _type: foundType });
+        } else {
+          setDbMember(null);
+        }
+        setDbError(null);
+
+      } catch (err: any) {
         console.warn('Firestore member search failed:', err);
+        setDbError(err.message || 'Unknown error occurred');
       } finally {
         setIsSearchingDb(false);
       }
@@ -113,26 +181,24 @@ export function Verify() {
     searchFirestore();
   }, [exactQuery]);
 
-  // Check in donation receipts first (e.g. REC-2026-...)
-  const foundDonation = donations.find(d => 
+  // Map from local state or dbMember depending on what was found
+  const foundDonation = (dbMember?._type === 'donation' ? dbMember : null) || donations.find(d => 
     d.receiptNumber.toLowerCase() === cleanQuery || 
     (d.transactionId && d.transactionId.toLowerCase() === cleanQuery) ||
     cleanQuery.includes(d.receiptNumber.toLowerCase())
   );
 
-  // Check local members (if admin is logged in) or use the DB fetched member
-  const foundMember = dbMember || (!foundDonation ? members.find(m => 
+  const foundMember = (dbMember?._type === 'member' ? dbMember : null) || (!foundDonation ? members.find(m => 
     (m.memberId && m.memberId.toLowerCase() === cleanQuery) || 
     (m.id && m.id.toLowerCase() === cleanQuery) ||
     (m.memberId && cleanQuery.includes(m.memberId.toLowerCase()))
   ) : null);
 
-  // Check in volunteers list if not found
-  const foundVolunteer = (!foundDonation && !foundMember) ? volunteers.find(v => 
+  const foundVolunteer = (dbMember?._type === 'volunteer' ? dbMember : null) || ((!foundDonation && !foundMember) ? volunteers.find(v => 
     (v.volunteerId && v.volunteerId.toLowerCase() === cleanQuery) || 
     (v.id && v.id.toLowerCase() === cleanQuery) ||
     (v.volunteerId && cleanQuery.includes(v.volunteerId.toLowerCase()))
-  ) : null;
+  ) : null);
 
   const isVerified = Boolean(foundDonation || foundMember || foundVolunteer);
 
@@ -449,6 +515,13 @@ export function Verify() {
                 <h3 className="text-xl font-bold text-slate-900 mb-2">Searching Database...</h3>
                 <p className="text-sm text-slate-500">Please wait while we verify this credential securely.</p>
               </div>
+            ) : dbError ? (
+              <div className="bg-white rounded-3xl border border-red-200 p-8 sm:p-12 text-center shadow-sm">
+                <ShieldAlert className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-red-700 mb-2">Database Error</h3>
+                <p className="text-sm text-red-600 mb-4">{dbError}</p>
+                <p className="text-xs text-slate-500">There was an issue connecting to the database. This usually means a permission issue or a missing index.</p>
+              </div>
             ) : isVerified ? (
               /* Verified Member / Volunteer Card */
               <div className="bg-white rounded-3xl border border-emerald-200 shadow-2xl overflow-hidden relative">
@@ -582,13 +655,6 @@ export function Verify() {
                       >
                         {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
                         {copied ? 'Link Copied!' : 'Copy Verification Link'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
-                      >
-                        <Printer className="w-4 h-4" /> Print Verification Proof
                       </button>
                     </div>
                   </div>

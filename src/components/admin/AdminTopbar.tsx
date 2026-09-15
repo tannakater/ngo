@@ -138,7 +138,7 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Version Badge */}
         <div className="hidden xs:inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-mono font-bold tracking-wider shadow-2xs">
-          <span>V31</span>
+          <span>V32</span>
         </div>
 
         {/* Pending Donations Alert Pill */}
