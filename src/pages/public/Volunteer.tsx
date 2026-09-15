@@ -26,6 +26,7 @@ export function Volunteer() {
     await new Promise(r => setTimeout(r, 1000));
     
     addMember({
+      memberId: 'PENDING-VOLUNTEER',
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,

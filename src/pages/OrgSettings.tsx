@@ -325,6 +325,26 @@ export function OrgSettings() {
               </div>
 
               <div className="sm:col-span-6">
+                <label htmlFor="qrVerificationUrl" className="block text-sm font-medium leading-6 text-slate-900">
+                  QR Code Base Verification URL
+                </label>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    name="qrVerificationUrl"
+                    id="qrVerificationUrl"
+                    value={formData.qrVerificationUrl || ''}
+                    onChange={(e) => setFormData({ ...formData, qrVerificationUrl: e.target.value })}
+                    placeholder="https://example.com/verify?id={{memberId}}"
+                    className="block w-full rounded-md border-0 py-1.5 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-emerald-600 sm:text-sm sm:leading-6"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Use <code className="bg-slate-100 px-1 rounded">{"{{memberId}}"}</code> to dynamically inject the user's ID.
+                  </p>
+                </div>
+              </div>
+
+              <div className="sm:col-span-6">
                 <label htmlFor="facebook" className="block text-sm font-medium leading-6 text-slate-900">
                   Facebook / Social Link
                 </label>

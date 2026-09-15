@@ -19,6 +19,7 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    memberId: '',
     role: 'Member' as 'Member' | 'Volunteer' | 'Staff',
     designation: '',
     department: '',
@@ -40,6 +41,7 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
       setFormData({
         firstName: memberToEdit.firstName || '',
         lastName: memberToEdit.lastName || '',
+        memberId: memberToEdit.memberId || '',
         role: memberToEdit.role || 'Member',
         designation: memberToEdit.designation || '',
         department: memberToEdit.department || '',
@@ -58,6 +60,7 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
       setFormData({
         firstName: '',
         lastName: '',
+        memberId: '',
         role: 'Member',
         designation: '',
         department: '',
@@ -197,6 +200,20 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
                 {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
                 {isUploading ? 'Uploading...' : 'Upload Photo'}
               </button>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">ID Number *</label>
+              <input 
+                required 
+                type="text" 
+                placeholder="e.g. DAK-00001"
+                value={formData.memberId} 
+                onChange={e => setFormData({...formData, memberId: e.target.value})} 
+                className="w-full border border-slate-200 rounded-xl shadow-sm text-xs p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 font-mono" 
+              />
             </div>
           </div>
           

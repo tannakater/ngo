@@ -20,7 +20,7 @@ interface OrgState {
   syncWithFirebase: (userId: string) => void;
   disconnectFirebase: () => void;
   updateOrganization: (org: Partial<Organization>) => void;
-  addMember: (member: Omit<Member, 'id' | 'memberId'>) => void;
+  addMember: (member: Omit<Member, 'id'>) => void;
   updateMember: (id: string, member: Partial<Member>) => void;
   deleteMember: (id: string) => void;
   addCustomField: (field: Omit<CustomFieldDefinition, 'id'>) => void;
@@ -278,15 +278,12 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   addMember: async (memberData) => {
     const { userId, members, organization } = get();
-    const nextNum = members.length + 1;
-    const prefix = organization.shortName || 'GHF';
-    const memberIdString = `${prefix}-${String(nextNum).padStart(6, '0')}`;
     const newId = uuidv4();
     
     const newMember: Member = {
       ...memberData,
       id: newId,
-      memberId: memberIdString
+      memberId: memberData.memberId || 'ID-PENDING'
     };
     
     const updatedMembers = [newMember, ...members];
