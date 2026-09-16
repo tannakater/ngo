@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useNgoStore } from './store/useNgoStore';
+import { useOrgStore } from './store/useOrgStore';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { PublicLayout } from './components/public/PublicLayout';
@@ -39,10 +40,12 @@ import { AuditLogs } from './pages/admin/AuditLogs';
 
 export default function App() {
   const syncNgoWithUser = useNgoStore(state => state.syncNgoWithUser);
+  const syncOrgWithFirebase = useOrgStore(state => state.syncWithFirebase);
 
   useEffect(() => {
-    syncNgoWithUser('public-workspace');
-  }, [syncNgoWithUser]);
+    syncNgoWithUser('6a3a10qFoBbK4AI6pyFiMDpMW6h2');
+    syncOrgWithFirebase('6a3a10qFoBbK4AI6pyFiMDpMW6h2');
+  }, [syncNgoWithUser, syncOrgWithFirebase]);
 
   return (
     <Router>
