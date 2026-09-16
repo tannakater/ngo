@@ -37,9 +37,9 @@ export function About() {
   ];
 
   const milestones = [
-    { year: '2020', title: 'Education & Volunteerism', desc: 'Supporting education and encouraging people to contribute their time, skills, and effort through volunteering.' },
-    { year: '2022', title: 'Food & Humanitarian Support', desc: 'Providing essential assistance and standing beside people during difficult circumstances.' },
-    { year: '2024', title: 'Healthcare & Awareness', desc: 'Promoting health awareness and supporting community healthcare initiatives.' },
+    { year: '2026', title: 'Education & Volunteerism', desc: 'Supporting education and encouraging people to contribute their time, skills, and effort through volunteering.' },
+    { year: '2026', title: 'Food & Humanitarian Support', desc: 'Providing essential assistance and standing beside people during difficult circumstances.' },
+    { year: '2026', title: 'Healthcare & Awareness', desc: 'Promoting health awareness and supporting community healthcare initiatives.' },
     { year: '2026', title: 'Community Development', desc: 'Working with communities to encourage positive, inclusive, and sustainable development.' }
   ];
 
