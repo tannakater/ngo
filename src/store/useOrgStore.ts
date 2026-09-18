@@ -554,10 +554,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     // Always trigger Supabase data synchronization & realtime subscriptions
     syncWithSupabase(set, get);
 
-    if (isQuotaExhausted()) {
-      return;
-    }
-
     let workspaceId = userId;
     
     try {
@@ -575,7 +571,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       }
     } catch (e: any) {
       recordQuotaExhausted(e);
-      if (isQuotaExhausted()) return;
     }
     
     set({ userId: workspaceId });
@@ -647,11 +642,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       const membersRef = collection(db, 'users', workspaceId, 'members');
       
       unsubMembers = onSnapshot(membersRef, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'removed') {
-            markIdDeleted(change.doc.id);
-          }
-        });
         const fetchedMembers: Member[] = [];
         snapshot.forEach(doc => {
           if (!isIdDeleted(doc.id)) {
@@ -666,11 +656,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
       const publicVolunteersRef = collection(db, 'public_volunteers');
       unsubPublicVolunteers = onSnapshot(publicVolunteersRef, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'removed') {
-            markIdDeleted(change.doc.id);
-          }
-        });
         const fetchedPublic: Member[] = [];
         snapshot.forEach(doc => {
           if (!isIdDeleted(doc.id)) {
@@ -704,7 +689,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       localStorage.setItem('ngo_org_profile', JSON.stringify(newOrg));
     } catch (e) {}
 
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         const userDocRef = doc(db, 'users', userId);
         await setDoc(userDocRef, sanitizeForFirestore({
@@ -762,35 +747,33 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       }).catch(err => console.warn('Supabase member error:', err));
     }
 
-    if (!isQuotaExhausted()) {
-      if (auth.currentUser && userId) {
-        try {
-          await setDoc(doc(db, 'users', userId, 'members', newId), sanitizeForFirestore(newMember));
-          useAuditStore.getState().addLog({
-            action: 'Created',
-            entity: 'Member',
-            entityId: newId,
-            details: `Added new member: ${newMember.firstName} ${newMember.lastName} (${newMember.role}) [ID: ${newMember.memberId}]`
-          });
-        } catch (e: any) {
-          recordQuotaExhausted(e);
-        }
-      } else {
-        try {
-          await setDoc(doc(db, 'public_volunteers', newId), sanitizeForFirestore(newMember));
-          useAuditStore.getState().addLog({
-            action: 'Created',
-            category: 'Volunteers',
-            entity: 'Volunteer Applicant',
-            entityId: newId,
-            details: `New public volunteer application: ${newMember.firstName} ${newMember.lastName} (${newMember.department})`,
-            performedBy: `${newMember.firstName} ${newMember.lastName}`,
-            performedByEmail: newMember.email || 'applicant@dakseba.org',
-            performedByRole: 'Public Applicant'
-          });
-        } catch (e: any) {
-          recordQuotaExhausted(e);
-        }
+    if (auth.currentUser && userId) {
+      try {
+        await setDoc(doc(db, 'users', userId, 'members', newId), sanitizeForFirestore(newMember));
+        useAuditStore.getState().addLog({
+          action: 'Created',
+          entity: 'Member',
+          entityId: newId,
+          details: `Added new member: ${newMember.firstName} ${newMember.lastName} (${newMember.role}) [ID: ${newMember.memberId}]`
+        });
+      } catch (e: any) {
+        recordQuotaExhausted(e);
+      }
+    } else {
+      try {
+        await setDoc(doc(db, 'public_volunteers', newId), sanitizeForFirestore(newMember));
+        useAuditStore.getState().addLog({
+          action: 'Created',
+          category: 'Volunteers',
+          entity: 'Volunteer Applicant',
+          entityId: newId,
+          details: `New public volunteer application: ${newMember.firstName} ${newMember.lastName} (${newMember.department})`,
+          performedBy: `${newMember.firstName} ${newMember.lastName}`,
+          performedByEmail: newMember.email || 'applicant@dakseba.org',
+          performedByRole: 'Public Applicant'
+        });
+      } catch (e: any) {
+        recordQuotaExhausted(e);
       }
     }
   },
@@ -842,7 +825,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       }
     }
     
-    if (userId && !isQuotaExhausted() && memberToUpdate) {
+    if (userId && memberToUpdate) {
       try {
         try {
           await updateDoc(doc(db, 'users', userId, 'members', id), sanitizeForFirestore(memberToUpdate as any));
@@ -880,7 +863,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       Promise.resolve(supabase.from('members').delete().eq('id', id)).catch(() => {});
     }
 
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await deleteDoc(doc(db, 'users', userId, 'members', id));
         useAuditStore.getState().addLog({
@@ -904,7 +887,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ customFields: newFields });
     saveStoredOrgData({ customFields: newFields });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           customFields: newFields
@@ -922,7 +905,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ customFields: newFields });
     saveStoredOrgData({ customFields: newFields });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           customFields: newFields
@@ -939,7 +922,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ templates: newTemplates });
     saveStoredOrgData({ templates: newTemplates });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           templates: newTemplates
@@ -956,7 +939,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ templates: newTemplates });
     saveStoredOrgData({ templates: newTemplates });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           templates: newTemplates
@@ -978,7 +961,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ templates: newTemplates, activeTemplateId: newActiveId });
     saveStoredOrgData({ templates: newTemplates, activeTemplateId: newActiveId });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           templates: newTemplates,
@@ -1005,7 +988,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ templates: newTemplates });
     saveStoredOrgData({ templates: newTemplates });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           templates: newTemplates
@@ -1021,7 +1004,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ activeTemplateId: id });
     saveStoredOrgData({ activeTemplateId: id });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({
           activeTemplateId: id
@@ -1043,7 +1026,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ webUsers: updated });
     saveStoredOrgData({ webUsers: updated });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
         useAuditStore.getState().addLog({
@@ -1065,7 +1048,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ webUsers: updated });
     saveStoredOrgData({ webUsers: updated });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
         if (oldUser) {
@@ -1089,7 +1072,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ webUsers: updated });
     saveStoredOrgData({ webUsers: updated });
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId) {
       try {
         await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
         if (oldUser) {

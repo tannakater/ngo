@@ -928,6 +928,34 @@ export const isCampaignMatch = (camp: Campaign, campaignId?: string, campaignNam
 let unsubscribers: (() => void)[] = [];
 let supabaseNgoChannel: any = null;
 
+function mapSupabaseCampaign(row: any): Campaign {
+  return {
+    id: row.id,
+    name: row.name || 'Untitled Campaign',
+    description: row.description || '',
+    goalAmount: Number(row.goal_amount ?? row.goalAmount) || 0,
+    currentAmount: Number(row.current_amount ?? row.currentAmount) || 0,
+    coverImage: row.cover_image || row.coverImage || '',
+    status: (row.status === 'Completed' || row.status === 'Paused') ? row.status : 'Active',
+    category: row.category,
+    donorsCount: Number(row.donors_count ?? row.donorsCount) || 0,
+  };
+}
+
+function mapSupabaseProject(row: any): Project {
+  return {
+    id: row.id,
+    title: row.title || 'Untitled Project',
+    category: row.category,
+    description: row.description || '',
+    coverImage: row.cover_image || row.coverImage || '',
+    location: row.location || 'Bangladesh',
+    progress: Number(row.progress) || 0,
+    status: (row.status === 'Completed' || row.status === 'Draft') ? row.status : 'Active',
+    budget: Number(row.budget) || 0,
+  };
+}
+
 function mapSupabaseDonation(row: any): Donation {
   return {
     id: row.id,
@@ -971,7 +999,35 @@ function mapSupabaseMessage(row: any): ContactMessage {
 const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
   if (!supabase) return;
 
-  // 1. Fetch donations
+  // 1. Fetch campaigns from Supabase for instant cross-device sync
+  Promise.resolve(supabase.from('campaigns').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      const mapped = data.map(mapSupabaseCampaign).filter(c => c && c.id && !isIdDeleted(c.id));
+      const current = get().campaigns;
+      const campMap = new Map<string, Campaign>();
+      current.forEach(c => { if (c && c.id && !isIdDeleted(c.id)) campMap.set(c.id, c); });
+      mapped.forEach(c => campMap.set(c.id, { ...campMap.get(c.id), ...c }));
+      const merged = Array.from(campMap.values());
+      set({ campaigns: merged });
+      saveStoredNgoData({ campaigns: merged });
+    }
+  }).catch(err => console.warn('Supabase fetch campaigns notice:', err));
+
+  // 2. Fetch projects from Supabase
+  Promise.resolve(supabase.from('projects').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      const mapped = data.map(mapSupabaseProject).filter(p => p && p.id && !isIdDeleted(p.id));
+      const current = get().projects;
+      const projMap = new Map<string, Project>();
+      current.forEach(p => { if (p && p.id && !isIdDeleted(p.id)) projMap.set(p.id, p); });
+      mapped.forEach(p => projMap.set(p.id, { ...projMap.get(p.id), ...p }));
+      const merged = Array.from(projMap.values());
+      set({ projects: merged });
+      saveStoredNgoData({ projects: merged });
+    }
+  }).catch(err => console.warn('Supabase fetch projects notice:', err));
+
+  // 3. Fetch donations
   Promise.resolve(supabase.from('donations').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
     if (!error && Array.isArray(data)) {
       const mapped = data.map(mapSupabaseDonation).filter(d => d && d.id && !isIdDeleted(d.id));
@@ -985,7 +1041,7 @@ const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
     }
   }).catch(err => console.warn('Supabase fetch donations error:', err));
 
-  // 2. Fetch messages
+  // 4. Fetch messages
   Promise.resolve(supabase.from('messages').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
     if (!error && Array.isArray(data)) {
       const mapped = data.map(mapSupabaseMessage).filter(m => m && m.id && !isIdDeleted(m.id));
@@ -999,11 +1055,61 @@ const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
     }
   }).catch(err => console.warn('Supabase fetch messages error:', err));
 
-  // 3. Supabase Realtime Channel
+  // 5. Supabase Realtime Channel for Instant Cross-Device Sync
   if (!supabaseNgoChannel) {
     try {
       supabaseNgoChannel = supabase
         .channel('public:ngo_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const camp = mapSupabaseCampaign(payload.new);
+            if (isIdDeleted(camp.id)) return;
+            const current = get().campaigns;
+            const idx = current.findIndex(c => c.id === camp.id);
+            let updated: Campaign[];
+            if (idx >= 0) {
+              updated = [...current];
+              updated[idx] = { ...updated[idx], ...camp };
+            } else {
+              updated = [camp, ...current];
+            }
+            set({ campaigns: updated });
+            saveStoredNgoData({ campaigns: updated });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const delId = payload.old.id;
+            if (delId) {
+              markIdDeleted(delId);
+              const updated = get().campaigns.filter(c => c.id !== delId);
+              set({ campaigns: updated });
+              saveStoredNgoData({ campaigns: updated });
+            }
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const proj = mapSupabaseProject(payload.new);
+            if (isIdDeleted(proj.id)) return;
+            const current = get().projects;
+            const idx = current.findIndex(p => p.id === proj.id);
+            let updated: Project[];
+            if (idx >= 0) {
+              updated = [...current];
+              updated[idx] = { ...updated[idx], ...proj };
+            } else {
+              updated = [proj, ...current];
+            }
+            set({ projects: updated });
+            saveStoredNgoData({ projects: updated });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const delId = payload.old.id;
+            if (delId) {
+              markIdDeleted(delId);
+              const updated = get().projects.filter(p => p.id !== delId);
+              set({ projects: updated });
+              saveStoredNgoData({ projects: updated });
+            }
+          }
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const don = mapSupabaseDonation(payload.new);
@@ -1093,20 +1199,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     // Always trigger Supabase sync and realtime listeners
     syncNgoWithSupabase(set, get);
 
-    // If quota was already exhausted, operate smoothly in offline mode
-    if (isQuotaExhausted()) {
-      return;
-    }
-
     const setupCollectionSync = async (colName: string, stateKey: keyof NgoState) => {
       const colRef = collection(db, colName);
       try {
         const unsub = onSnapshot(colRef, (snapshot) => {
-          snapshot.docChanges().forEach(change => {
-            if (change.type === 'removed') {
-              markIdDeleted(change.doc.id);
-            }
-          });
           const rawItems: any[] = [];
           snapshot.forEach(d => {
             const data = d.data();
@@ -1164,7 +1260,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
           }
         }, (err) => {
           if (recordQuotaExhausted(err)) {
-            // Unsubscribe all active listeners immediately to prevent error cascade
+            // Unsubscribe active listeners if quota is strictly exhausted
             unsubscribers.forEach(u => {
               try { u(); } catch (e) {}
             });
@@ -1238,12 +1334,24 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Created new field program: ${validated.title} [Location: ${validated.location}]`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'projects', id), sanitizeForFirestore(validated));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    if (supabase) {
+      Promise.resolve(supabase.from('projects').upsert([{
+        id,
+        title: validated.title,
+        category: validated.category || null,
+        description: validated.description || '',
+        cover_image: validated.coverImage || '',
+        location: validated.location || 'Bangladesh',
+        progress: validated.progress || 0,
+        status: validated.status || 'Active',
+        budget: validated.budget || 0,
+      }])).catch(err => console.warn('Supabase project upsert notice:', err));
+    }
+
+    try {
+      await setDoc(doc(db, 'projects', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for project:', e);
     }
   },
   updateProject: async (id, projectUpdate) => {
@@ -1263,15 +1371,26 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       });
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        const proj = updated.find(p => p.id === id);
-        if (proj) {
-          await setDoc(doc(db, 'projects', id), sanitizeForFirestore(proj) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    const proj = updated.find(p => p.id === id);
+    if (proj && supabase) {
+      Promise.resolve(supabase.from('projects').update({
+        title: proj.title,
+        category: proj.category || null,
+        description: proj.description || '',
+        cover_image: proj.coverImage || '',
+        location: proj.location || 'Bangladesh',
+        progress: proj.progress || 0,
+        status: proj.status || 'Active',
+        budget: proj.budget || 0,
+      }).eq('id', id)).catch(err => console.warn('Supabase project update notice:', err));
+    }
+
+    try {
+      if (proj) {
+        await setDoc(doc(db, 'projects', id), sanitizeForFirestore(proj) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for project:', e);
     }
   },
   deleteProject: async (id) => {
@@ -1290,12 +1409,14 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Removed field program: ${oldProj?.title || id}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'projects', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    if (supabase) {
+      Promise.resolve(supabase.from('projects').delete().eq('id', id)).catch(() => {});
+    }
+
+    try {
+      await deleteDoc(doc(db, 'projects', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for project:', e);
     }
   },
 
@@ -1316,12 +1437,24 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Launched fundraising campaign: ${validated.name} [Target: ${validated.goalAmount.toLocaleString()} BDT]`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(validated), { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    if (supabase) {
+      Promise.resolve(supabase.from('campaigns').upsert([{
+        id,
+        name: validated.name,
+        description: validated.description || '',
+        goal_amount: validated.goalAmount || 0,
+        current_amount: validated.currentAmount || 0,
+        cover_image: validated.coverImage || '',
+        status: validated.status || 'Active',
+        category: validated.category || null,
+        donors_count: validated.donorsCount || 0,
+      }])).catch(err => console.warn('Supabase campaign upsert notice:', err));
+    }
+
+    try {
+      await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for campaign:', e);
     }
   },
   updateCampaign: async (id, campaignUpdate) => {
@@ -1341,15 +1474,26 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       });
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        const camp = updated.find(c => c.id === id);
-        if (camp) {
-          await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    const camp = updated.find(c => c.id === id);
+    if (camp && supabase) {
+      Promise.resolve(supabase.from('campaigns').update({
+        name: camp.name,
+        description: camp.description || '',
+        goal_amount: camp.goalAmount || 0,
+        current_amount: camp.currentAmount || 0,
+        cover_image: camp.coverImage || '',
+        status: camp.status || 'Active',
+        category: camp.category || null,
+        donors_count: camp.donorsCount || 0,
+      }).eq('id', id)).catch(err => console.warn('Supabase campaign update notice:', err));
+    }
+
+    try {
+      if (camp) {
+        await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for campaign:', e);
     }
   },
   deleteCampaign: async (id) => {
@@ -1368,12 +1512,14 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Removed fundraising campaign: ${oldCamp?.name || id}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'campaigns', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    if (supabase) {
+      Promise.resolve(supabase.from('campaigns').delete().eq('id', id)).catch(() => {});
+    }
+
+    try {
+      await deleteDoc(doc(db, 'campaigns', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for campaign:', e);
     }
   },
 
@@ -1416,12 +1562,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }).catch(err => console.warn('Supabase volunteer error:', err));
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'volunteers', id), sanitizeForFirestore(validated));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'volunteers', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for volunteer:', e);
     }
   },
   updateVolunteer: async (id, volunteerUpdate) => {
@@ -1441,15 +1585,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       });
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        const vol = updated.find(v => v.id === id);
-        if (vol) {
-          await updateDoc(doc(db, 'volunteers', id), sanitizeForFirestore(vol) as any);
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    try {
+      const vol = updated.find(v => v.id === id);
+      if (vol) {
+        await setDoc(doc(db, 'volunteers', id), sanitizeForFirestore(vol) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for volunteer:', e);
     }
   },
   deleteVolunteer: async (id) => {
@@ -1473,12 +1615,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Removed volunteer record: ${oldVol?.name || id}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'volunteers', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'volunteers', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for volunteer:', e);
     }
   },
 
@@ -1499,12 +1639,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Scheduled event: ${validated.title} on ${validated.date}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'events', id), sanitizeForFirestore(validated));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'events', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for event:', e);
     }
   },
   updateEvent: async (id, eventUpdate) => {
@@ -1512,15 +1650,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().events.map(e => e.id === id ? { ...e, ...eventUpdate } : e);
     set({ events: updated });
     saveStoredNgoData({ events: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        const ev = updated.find(e => e.id === id);
-        if (ev) {
-          await setDoc(doc(db, 'events', id), sanitizeForFirestore(ev) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    try {
+      const ev = updated.find(e => e.id === id);
+      if (ev) {
+        await setDoc(doc(db, 'events', id), sanitizeForFirestore(ev) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for event:', e);
     }
   },
   deleteEvent: async (id) => {
@@ -1528,12 +1664,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().events.filter(e => e.id !== id && !isIdDeleted(e.id));
     set({ events: updated });
     saveStoredNgoData({ events: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'events', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'events', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for event:', e);
     }
   },
 
@@ -1554,12 +1688,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Published news article: ${validated.title}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'news', id), sanitizeForFirestore(validated), { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'news', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for news:', e);
     }
   },
   updateNews: async (id, newsUpdate) => {
@@ -1567,15 +1699,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().news.map(n => n.id === id ? { ...n, ...newsUpdate } : n);
     set({ news: updated });
     saveStoredNgoData({ news: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        const item = updated.find(n => n.id === id);
-        if (item) {
-          await setDoc(doc(db, 'news', id), sanitizeForFirestore(item) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    try {
+      const item = updated.find(n => n.id === id);
+      if (item) {
+        await setDoc(doc(db, 'news', id), sanitizeForFirestore(item) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for news:', e);
     }
   },
   deleteNews: async (id) => {
@@ -1583,12 +1713,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().news.filter(n => n.id !== id && !isIdDeleted(n.id));
     set({ news: updated });
     saveStoredNgoData({ news: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'news', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'news', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for news:', e);
     }
   },
 
@@ -1657,12 +1785,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }).catch(err => console.warn('Supabase donation error:', err));
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'donations', id), sanitizeForFirestore(validated));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'donations', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for donation:', e);
     }
     return validated;
   },
@@ -1683,15 +1809,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       });
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        const don = updated.find(d => d.id === id);
-        if (don) {
-          await setDoc(doc(db, 'donations', id), sanitizeForFirestore(don) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    try {
+      const don = updated.find(d => d.id === id);
+      if (don) {
+        await setDoc(doc(db, 'donations', id), sanitizeForFirestore(don) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for donation:', e);
     }
   },
   approveDonation: async (id, officer) => {
@@ -1741,15 +1865,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       set({ campaigns: updatedCampaigns });
       saveStoredNgoData({ campaigns: updatedCampaigns });
       
-      if (!isQuotaExhausted()) {
-        try {
-          await setDoc(doc(db, 'campaigns', campaign.id), {
-            currentAmount: newCurrent,
-            donorsCount: newDonors
-          }, { merge: true });
-        } catch (e: any) {
-          recordQuotaExhausted(e);
-        }
+      try {
+        await setDoc(doc(db, 'campaigns', campaign.id), {
+          currentAmount: newCurrent,
+          donorsCount: newDonors
+        }, { merge: true });
+      } catch (e: any) {
+        console.warn('Firestore campaign amount update error:', e);
       }
     }
 
@@ -1770,12 +1892,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }).catch(err => console.warn('Supabase donation approval error:', err));
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any, { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any, { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore donation approval write error:', e);
     }
     return updatedDon;
   },
@@ -1799,12 +1919,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Cancelled/deleted donation record: ${oldDon?.receiptNumber || id} (৳${oldDon?.amount?.toLocaleString() || 0})`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'donations', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'donations', id));
+    } catch (e: any) {
+      console.warn('Firestore delete donation error:', e);
     }
   },
 
@@ -1840,12 +1958,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }).catch(err => console.warn('Supabase message error:', err));
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'messages', id), sanitizeForFirestore(validated), { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'messages', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for message:', e);
     }
   },
   markMessageRead: async (id) => {
@@ -1853,12 +1969,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().messages.map(m => m.id === id ? { ...m, isRead: true } : m);
     set({ messages: updated });
     saveStoredNgoData({ messages: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'messages', id), { isRead: true }, { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'messages', id), { isRead: true }, { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore update error for message read:', e);
     }
   },
   deleteMessage: async (id) => {
@@ -1871,12 +1985,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       Promise.resolve(supabase.from('messages').delete().eq('id', id)).catch(() => {});
     }
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'messages', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'messages', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for message:', e);
     }
   },
 
@@ -1901,12 +2013,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Uploaded audit/transparency document: ${validated.title} (${validated.category}) [Year: ${validated.year}]`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'documents', id), sanitizeForFirestore(validated), { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'documents', id), sanitizeForFirestore(validated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore write error for document:', e);
     }
   },
   updateDocument: async (id, docUpdate) => {
@@ -1914,15 +2024,13 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().documents.map(d => d.id === id ? { ...d, ...docUpdate } : d);
     set({ documents: updated });
     saveStoredNgoData({ documents: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        const item = updated.find(d => d.id === id);
-        if (item) {
-          await setDoc(doc(db, 'documents', id), sanitizeForFirestore(item) as any, { merge: true });
-        }
-      } catch (e: any) {
-        recordQuotaExhausted(e);
+    try {
+      const item = updated.find(d => d.id === id);
+      if (item) {
+        await setDoc(doc(db, 'documents', id), sanitizeForFirestore(item) as any, { merge: true });
       }
+    } catch (e: any) {
+      console.warn('Firestore update error for document:', e);
     }
   },
   deleteDocument: async (id) => {
@@ -1941,12 +2049,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       details: `Removed transparency document: ${oldDoc?.title || id}`
     });
 
-    if (!isQuotaExhausted()) {
-      try {
-        await deleteDoc(doc(db, 'documents', id));
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await deleteDoc(doc(db, 'documents', id));
+    } catch (e: any) {
+      console.warn('Firestore delete error for document:', e);
     }
   },
 
@@ -1954,12 +2060,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = { ...get().stats, ...newStats };
     set({ stats: updated });
     saveStoredNgoData({ stats: updated });
-    if (!isQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'app_stats', 'main'), sanitizeForFirestore(updated), { merge: true });
-      } catch (e: any) {
-        recordQuotaExhausted(e);
-      }
+    try {
+      await setDoc(doc(db, 'app_stats', 'main'), sanitizeForFirestore(updated), { merge: true });
+    } catch (e: any) {
+      console.warn('Firestore stats update error:', e);
     }
   }
   };

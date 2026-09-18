@@ -1,39 +1,29 @@
 // Centralized Firestore Quota & Offline Manager
 let quotaExhausted = false;
 
-// Check if quota exhaustion was flagged in this browser session
-try {
-  if (typeof window !== 'undefined' && sessionStorage.getItem('firestore_quota_exhausted') === 'true') {
-    quotaExhausted = true;
-  }
-} catch (e) {}
-
 const listeners: ((exhausted: boolean) => void)[] = [];
 
 export function isQuotaExhausted(): boolean {
   return quotaExhausted;
 }
 
-export function recordQuotaExhausted(err?: any) {
+export function recordQuotaExhausted(err?: any): boolean {
+  if (!err) return false;
+  
   const isQuotaError = 
     err?.code === 'resource-exhausted' || 
-    err?.message?.toLowerCase().includes('quota') ||
-    err?.message?.toLowerCase().includes('resource-exhausted');
+    (typeof err?.message === 'string' && (
+      err.message.toLowerCase().includes('quota exceeded') ||
+      err.message.toLowerCase().includes('resource-exhausted')
+    ));
 
-  if (isQuotaError || !err) {
+  if (isQuotaError) {
     if (!quotaExhausted) {
       quotaExhausted = true;
-      try {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('firestore_quota_exhausted', 'true');
-        }
-      } catch (e) {}
-      
       console.warn(
         '⚠️ [Firestore Notice] Daily read quota limit reached for free tier database. ' +
-        'DakSeba Foundation platform is running seamlessly in offline cached mode with full local persistence.'
+        'DakSeba Foundation platform is running in offline cached mode with local persistence.'
       );
-      
       listeners.forEach(cb => {
         try { cb(true); } catch (e) {}
       });
