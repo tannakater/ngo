@@ -238,9 +238,89 @@ const defaultTemplates: CardTemplate[] = [
 let unsubUser: (() => void) | null = null;
 let unsubMembers: (() => void) | null = null;
 let unsubPublicVolunteers: (() => void) | null = null;
+let supabaseOrgChannel: any = null;
 
 let localPrivateMembers: Member[] = [];
 let localPublicMembers: Member[] = [];
+
+function mapSupabaseMember(row: any): Member {
+  return {
+    id: row.id,
+    memberId: row.member_id || row.memberId || 'DAK-261001',
+    firstName: row.first_name || row.firstName || '',
+    lastName: row.last_name || row.lastName || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    role: row.role || 'Volunteer',
+    designation: row.designation || '',
+    department: row.department || '',
+    bloodGroup: row.blood_group || row.bloodGroup || '',
+    dateOfBirth: row.date_of_birth || row.dateOfBirth || '',
+    joiningDate: row.joining_date || row.joiningDate || '',
+    address: row.address || '',
+    photoUrl: row.photo_url || row.photoUrl || '',
+    emergencyContact: row.emergency_contact || row.emergencyContact || '',
+    status: row.status || 'Active',
+    customFields: row.custom_fields || row.customFields || {},
+    idCardGenerated: row.id_card_generated ?? row.idCardGenerated,
+    needsRegeneration: row.needs_regeneration ?? row.needsRegeneration
+  };
+}
+
+const syncWithSupabase = (set: any, get: () => OrgState) => {
+  if (!supabase) return;
+
+  // 1. Fetch public volunteer applications
+  Promise.resolve(supabase.from('public_volunteers').select('*')).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      localPublicMembers = data.map(mapSupabaseMember);
+      mergeAndSetMembers(set, get);
+    }
+  }).catch(err => console.warn('Supabase fetch public_volunteers error:', err));
+
+  // 2. Fetch active members
+  Promise.resolve(supabase.from('members').select('*')).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      localPrivateMembers = data.map(mapSupabaseMember);
+      mergeAndSetMembers(set, get);
+    }
+  }).catch(err => console.warn('Supabase fetch members error:', err));
+
+  // 3. Supabase Realtime Channel
+  if (!supabaseOrgChannel) {
+    try {
+      supabaseOrgChannel = supabase
+        .channel('public:org_members_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'public_volunteers' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const mem = mapSupabaseMember(payload.new);
+            const idx = localPublicMembers.findIndex(m => m.id === mem.id);
+            if (idx >= 0) localPublicMembers[idx] = mem;
+            else localPublicMembers.unshift(mem);
+            mergeAndSetMembers(set, get);
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            localPublicMembers = localPublicMembers.filter(m => m.id !== payload.old.id);
+            mergeAndSetMembers(set, get);
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const mem = mapSupabaseMember(payload.new);
+            const idx = localPrivateMembers.findIndex(m => m.id === mem.id);
+            if (idx >= 0) localPrivateMembers[idx] = mem;
+            else localPrivateMembers.unshift(mem);
+            mergeAndSetMembers(set, get);
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            localPrivateMembers = localPrivateMembers.filter(m => m.id !== payload.old.id);
+            mergeAndSetMembers(set, get);
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase realtime channel error:', e);
+    }
+  }
+};
 
 const mergeAndSetMembers = (set: any, get: () => OrgState) => {
   const currentMembers = get().members || [];
@@ -426,6 +506,9 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   webUsers: initialOrgData.webUsers,
 
   syncWithFirebase: async (userId: string) => {
+    // Always trigger Supabase data synchronization & realtime subscriptions
+    syncWithSupabase(set, get);
+
     if (isQuotaExhausted()) {
       return;
     }
@@ -919,3 +1002,11 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     }
   }
 }));
+
+// Auto-sync with Supabase on module load
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    syncWithSupabase(useOrgStore.setState, useOrgStore.getState);
+  }, 50);
+}
+

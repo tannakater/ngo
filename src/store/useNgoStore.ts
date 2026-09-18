@@ -926,6 +926,122 @@ export const isCampaignMatch = (camp: Campaign, campaignId?: string, campaignNam
 };
 
 let unsubscribers: (() => void)[] = [];
+let supabaseNgoChannel: any = null;
+
+function mapSupabaseDonation(row: any): Donation {
+  return {
+    id: row.id,
+    receiptNumber: row.receipt_number || row.receiptNumber,
+    donorName: row.donor_name || row.donorName,
+    donorEmail: row.donor_email || row.donorEmail,
+    donorPhone: row.donor_phone || row.donorPhone,
+    amount: Number(row.amount) || 0,
+    currency: row.currency || 'BDT',
+    frequency: row.frequency || 'one-time',
+    transactionId: row.transaction_id || row.transactionId,
+    isAnonymous: Boolean(row.is_anonymous ?? row.isAnonymous),
+    dedication: row.dedication,
+    campaignId: row.campaign_id || row.campaignId,
+    campaignName: row.campaign_name || row.campaignName,
+    paymentMethod: row.payment_method || row.paymentMethod || 'card',
+    status: row.status || 'Pending',
+    approvedAt: row.approved_at || row.approvedAt,
+    approvedBy: row.approved_by || row.approvedBy,
+    approverRole: row.approver_role || row.approverRole,
+    receiptSent: Boolean(row.receipt_sent ?? row.receiptSent),
+    smsSent: Boolean(row.sms_sent ?? row.smsSent),
+    emailSent: Boolean(row.email_sent ?? row.emailSent),
+    createdAt: row.created_at || row.createdAt || new Date().toISOString()
+  };
+}
+
+function mapSupabaseMessage(row: any): ContactMessage {
+  return {
+    id: row.id,
+    name: row.name || '',
+    email: row.email || '',
+    phone: row.phone,
+    subject: row.subject || 'General Inquiry',
+    message: row.message || '',
+    isRead: Boolean(row.is_read ?? row.isRead),
+    createdAt: row.created_at || row.createdAt || new Date().toISOString()
+  };
+}
+
+const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
+  if (!supabase) return;
+
+  // 1. Fetch donations
+  Promise.resolve(supabase.from('donations').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      const mapped = data.map(mapSupabaseDonation).filter(d => d && d.id && !isIdDeleted(d.id));
+      const current = get().donations;
+      const donMap = new Map<string, Donation>();
+      current.forEach(d => { if (d && d.id && !isIdDeleted(d.id)) donMap.set(d.id, d); });
+      mapped.forEach(d => donMap.set(d.id, { ...donMap.get(d.id), ...d }));
+      const merged = Array.from(donMap.values());
+      set({ donations: merged });
+      saveStoredNgoData({ donations: merged });
+    }
+  }).catch(err => console.warn('Supabase fetch donations error:', err));
+
+  // 2. Fetch messages
+  Promise.resolve(supabase.from('messages').select('*').order('created_at', { ascending: false })).then(({ data, error }) => {
+    if (!error && Array.isArray(data)) {
+      const mapped = data.map(mapSupabaseMessage).filter(m => m && m.id && !isIdDeleted(m.id));
+      const current = get().messages;
+      const msgMap = new Map<string, ContactMessage>();
+      current.forEach(m => { if (m && m.id && !isIdDeleted(m.id)) msgMap.set(m.id, m); });
+      mapped.forEach(m => msgMap.set(m.id, { ...msgMap.get(m.id), ...m }));
+      const merged = Array.from(msgMap.values());
+      set({ messages: merged });
+      saveStoredNgoData({ messages: merged });
+    }
+  }).catch(err => console.warn('Supabase fetch messages error:', err));
+
+  // 3. Supabase Realtime Channel
+  if (!supabaseNgoChannel) {
+    try {
+      supabaseNgoChannel = supabase
+        .channel('public:ngo_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const don = mapSupabaseDonation(payload.new);
+            const current = get().donations;
+            const idx = current.findIndex(d => d.id === don.id);
+            let updated: Donation[];
+            if (idx >= 0) {
+              updated = [...current];
+              updated[idx] = { ...updated[idx], ...don };
+            } else {
+              updated = [don, ...current];
+            }
+            set({ donations: updated });
+            saveStoredNgoData({ donations: updated });
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const msg = mapSupabaseMessage(payload.new);
+            const current = get().messages;
+            const idx = current.findIndex(m => m.id === msg.id);
+            let updated: ContactMessage[];
+            if (idx >= 0) {
+              updated = [...current];
+              updated[idx] = { ...updated[idx], ...msg };
+            } else {
+              updated = [msg, ...current];
+            }
+            set({ messages: updated });
+            saveStoredNgoData({ messages: updated });
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase Ngo realtime channel error:', e);
+    }
+  }
+};
 
 const initialData = loadStoredNgoData();
 
@@ -955,6 +1071,9 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try { u(); } catch (e) {}
     });
     unsubscribers = [];
+
+    // Always trigger Supabase sync and realtime listeners
+    syncNgoWithSupabase(set, get);
 
     // If quota was already exhausted, operate smoothly in offline mode
     if (isQuotaExhausted()) {
@@ -1259,6 +1378,28 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       entityId: id,
       details: `Enrolled volunteer: ${validated.name} (${validated.department}) [ID: ${validated.volunteerId}]`
     });
+
+    if (supabase) {
+      const parts = (validated.name || '').trim().split(' ');
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
+      Promise.resolve(
+        supabase.from('public_volunteers').upsert([{
+          id,
+          member_id: validated.volunteerId || 'DAK-VOL',
+          first_name: firstName,
+          last_name: lastName,
+          email: validated.email || null,
+          phone: validated.phone || null,
+          role: 'Volunteer',
+          designation: 'Volunteer Applicant',
+          department: validated.department || 'General Support',
+          status: validated.status || 'Pending'
+        }])
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase volunteer upsert:', error.message);
+      }).catch(err => console.warn('Supabase volunteer error:', err));
+    }
 
     if (!isQuotaExhausted()) {
       try {
@@ -1850,6 +1991,10 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('daksheba-record-deleted', handleRecordDeletion as EventListener);
   window.addEventListener('ngo-record-deleted', handleRecordDeletion as EventListener);
+
+  setTimeout(() => {
+    syncNgoWithSupabase(useNgoStore.setState, useNgoStore.getState);
+  }, 50);
 
   window.addEventListener('storage', (e) => {
     if (e.key === 'daksheba_deleted_ids') {
