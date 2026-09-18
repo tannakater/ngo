@@ -1001,9 +1001,31 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
               validatedItems = filterNonDeleted(rawItems);
           }
 
-          // Update state and persistence (reflects deletions as well)
-          set({ [stateKey]: validatedItems } as any);
-          saveStoredNgoData({ [stateKey]: validatedItems } as any);
+          const currentItems = (get()[stateKey] as any[]) || [];
+          const itemMap = new Map<string, any>();
+
+          // 1. Preserve active in-memory / local items (excluding tombstones)
+          currentItems.forEach(item => {
+            if (item && item.id && !isIdDeleted(item.id)) {
+              itemMap.set(item.id, item);
+            }
+          });
+
+          // 2. Overlay remote validated snapshot items
+          validatedItems.forEach(item => {
+            if (item && item.id && !isIdDeleted(item.id)) {
+              const existing = itemMap.get(item.id);
+              itemMap.set(item.id, { ...existing, ...item });
+            }
+          });
+
+          const mergedItems = Array.from(itemMap.values()).filter(item => !isIdDeleted(item.id));
+
+          // Only update if there are items to show or we had no prior items
+          if (mergedItems.length > 0 || currentItems.length === 0) {
+            set({ [stateKey]: mergedItems } as any);
+            saveStoredNgoData({ [stateKey]: mergedItems } as any);
+          }
         }, (err) => {
           if (recordQuotaExhausted(err)) {
             // Unsubscribe all active listeners immediately to prevent error cascade

@@ -3,6 +3,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { Bell, Search, Menu, Globe, ExternalLink, Heart, Check, X, Shield } from 'lucide-react';
 import { useNgoStore } from '../../store/useNgoStore';
 import { useOrgStore } from '../../store/useOrgStore';
+import { APP_VERSION } from '../../config/version';
 
 const routeTitles: Record<string, { title: string; category: string }> = {
   '/admin': { title: 'Executive Dashboard', category: 'Overview' },
@@ -142,7 +143,7 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {/* Version Badge */}
         <div className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-mono font-bold tracking-wider shadow-2xs">
-          <span>V44</span>
+          <span>{APP_VERSION}</span>
         </div>
 
         {/* Pending Donations Alert Pill */}

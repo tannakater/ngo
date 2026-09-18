@@ -247,28 +247,28 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-xs">
-            <thead className="bg-slate-50 sticky top-0 z-10 text-slate-500 uppercase font-bold tracking-wider">
+        <div className="overflow-x-auto overflow-y-hidden">
+          <table className="w-full divide-y divide-slate-200 text-xs text-left">
+            <thead className="bg-slate-50 sticky top-0 z-10 text-slate-500 uppercase font-bold tracking-wider text-[11px]">
               <tr>
-                <th scope="col" className="py-3.5 pl-6 pr-3 text-left">
+                <th scope="col" className="py-3 pl-4 pr-2 text-left">
                   Member
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left">
+                <th scope="col" className="px-2.5 py-3 text-left">
                   Official ID #
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left">
+                <th scope="col" className="px-2.5 py-3 text-left">
                   Role & Department
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left">
+                <th scope="col" className="px-2 py-3 text-left">
                   Status
                 </th>
                 {isMasterAdmin && (
-                  <th scope="col" className="px-3 py-3.5 text-left">
+                  <th scope="col" className="px-2.5 py-3 text-left">
                     ID Card Credential
                   </th>
                 )}
-                <th scope="col" className="py-3.5 pl-3 pr-6 text-right">
+                <th scope="col" className="py-3 pl-2 pr-4 text-right">
                   Actions
                 </th>
               </tr>
@@ -276,75 +276,75 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
             <tbody className="divide-y divide-slate-200 bg-white">
               {filteredMembers.map((member) => (
                 <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="whitespace-nowrap py-4 pl-6 pr-3">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden border border-slate-200">
+                  <td className="py-3 pl-4 pr-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 flex-shrink-0 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden border border-slate-200">
                         {member.photoUrl ? (
                           <img className="h-full w-full object-cover" src={getOptimizeImageUrl(member.photoUrl)} alt="" />
                         ) : (
                           <span className="text-slate-500 text-xs font-bold">{member.firstName?.[0]}</span>
                         )}
                       </div>
-                      <div className="ml-4">
-                        <div className="font-bold text-slate-900">{member.firstName} {member.lastName}</div>
-                        <div className="text-slate-500 text-[11px] font-mono">{member.email}</div>
+                      <div className="min-w-0 max-w-[170px] sm:max-w-[200px]">
+                        <div className="font-bold text-slate-900 truncate">{member.firstName} {member.lastName}</div>
+                        <div className="text-slate-500 text-[11px] font-mono truncate">{member.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4">
-                    <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-800 font-bold text-[11px]">
+                  <td className="px-2.5 py-3 whitespace-nowrap">
+                    <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-800 font-bold text-[11px]">
                       {member.memberId}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4">
-                    <div className="font-bold text-emerald-700 text-xs mb-0.5">{member.role || 'Member'}</div>
-                    <div className="text-slate-800 font-medium">{member.designation}</div>
-                    <div className="text-slate-400 text-[11px]">{member.department}</div>
+                  <td className="px-2.5 py-3">
+                    <div className="font-bold text-emerald-700 text-xs leading-tight">{member.role || 'Member'}</div>
+                    <div className="text-slate-800 font-medium text-[11px] truncate max-w-[140px]">{member.designation}</div>
+                    <div className="text-slate-400 text-[10px] truncate max-w-[140px]">{member.department}</div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4">
+                  <td className="px-2 py-3 whitespace-nowrap">
                     <span className={cn(
-                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase",
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
                       member.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                     )}>
                       {member.status}
                     </span>
                   </td>
                   {isMasterAdmin && (
-                    <td className="whitespace-nowrap px-3 py-4">
+                    <td className="px-2.5 py-3 whitespace-nowrap">
                       {member.idCardGenerated && !member.needsRegeneration ? (
                         <div className="flex flex-col">
-                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full text-[10px] font-bold w-fit">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Issued & Active
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold w-fit">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" /> Issued
                           </span>
                           {member.idCardGeneratedAt && (
-                            <span className="text-[10px] text-slate-400 mt-1 pl-1">
+                            <span className="text-[10px] text-slate-400 mt-0.5 pl-1">
                               {new Date(member.idCardGeneratedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                           )}
                         </div>
                       ) : member.idCardGenerated && member.needsRegeneration ? (
                         <div className="flex flex-col">
-                          <span className="inline-flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-1 rounded-full text-[10px] font-bold w-fit">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" /> Info Updated
+                          <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full text-[10px] font-bold w-fit">
+                            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" /> Info Updated
                           </span>
-                          <span className="text-[10px] text-amber-700 font-semibold mt-1 pl-1">
-                            Re-generation ready
+                          <span className="text-[10px] text-amber-700 font-semibold mt-0.5 pl-1">
+                            Re-gen ready
                           </span>
                         </div>
                       ) : (
-                        <span className="inline-flex items-center text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full text-[10px] font-semibold w-fit">
+                        <span className="inline-flex items-center text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-[10px] font-semibold w-fit">
                           Not Issued
                         </span>
                       )}
                     </td>
                   )}
-                  <td className="whitespace-nowrap py-4 pl-3 pr-6 text-right">
-                    <div className="flex justify-end items-center gap-2">
+                  <td className="py-3 pl-2 pr-4 text-right whitespace-nowrap">
+                    <div className="flex justify-end items-center gap-1.5">
                       {member.status === 'Pending' ? (
                         <>
                           <button
                             type="button"
-                            className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center py-1.5 px-3 rounded-xl transition-colors border border-emerald-200 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
+                            className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center py-1.5 px-2.5 rounded-lg transition-colors border border-emerald-200 text-xs font-bold gap-1 shadow-xs cursor-pointer"
                             title="Accept Volunteer Request"
                             onClick={() => updateMember(member.id, { status: 'Active' })}
                           >
@@ -353,7 +353,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                           </button>
                           <button
                             type="button"
-                            className="text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 flex items-center justify-center py-1.5 px-3 rounded-xl transition-colors border border-rose-200 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
+                            className="text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 flex items-center justify-center py-1.5 px-2.5 rounded-lg transition-colors border border-rose-200 text-xs font-bold gap-1 shadow-xs cursor-pointer"
                             title="Reject Volunteer Request"
                             onClick={() => setDeleteConfirm({ isOpen: true, id: member.id, name: member.firstName })}
                           >
@@ -369,32 +369,32 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                               {member.idCardGenerated && !member.needsRegeneration ? (
                                 <button 
                                   type="button"
-                                  className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center py-1.5 px-3 rounded-xl transition-colors border border-emerald-200 text-xs font-bold gap-1.5 shadow-xs" 
+                                  className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center py-1 px-2.5 rounded-lg transition-colors border border-emerald-200 text-xs font-semibold gap-1 shadow-xs" 
                                   title="View, Print PDF or Download Issued ID Card"
                                   onClick={() => setQuickGenMemberId(member.id)}
                                 >
                                   <Printer className="h-3.5 w-3.5" />
-                                  <span>Print PDF / View</span>
+                                  <span>Print / View</span>
                                 </button>
                               ) : member.idCardGenerated && member.needsRegeneration ? (
                                 <button 
                                   type="button"
-                                  className="text-amber-900 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 flex items-center justify-center py-1.5 px-3 rounded-xl transition-colors border border-amber-300 text-xs font-bold gap-1.5 shadow-xs" 
+                                  className="text-amber-900 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 flex items-center justify-center py-1 px-2.5 rounded-lg transition-colors border border-amber-300 text-xs font-semibold gap-1 shadow-xs" 
                                   title="Re-generate and Print updated ID Card"
                                   onClick={() => setQuickGenMemberId(member.id)}
                                 >
                                   <RefreshCw className="h-3.5 w-3.5 text-amber-700" />
-                                  <span>Re-gen & Print PDF</span>
+                                  <span>Re-gen & Print</span>
                                 </button>
                               ) : (
                                 <button 
                                   type="button"
-                                  className="text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 flex items-center justify-center py-1.5 px-3 rounded-xl transition-colors border border-blue-200 text-xs font-bold gap-1.5 shadow-xs" 
+                                  className="text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 flex items-center justify-center py-1 px-2.5 rounded-lg transition-colors border border-blue-200 text-xs font-semibold gap-1 shadow-xs" 
                                   title="Generate and Print ID Card"
                                   onClick={() => setQuickGenMemberId(member.id)}
                                 >
                                   <IdCard className="h-3.5 w-3.5" />
-                                  <span>Generate & Print</span>
+                                  <span>Generate</span>
                                 </button>
                               )}
                             </>
@@ -405,7 +405,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                               setMemberToEdit(member);
                               setIsAddMemberOpen(true);
                             }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-blue-100 bg-blue-50/50"
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium px-2 py-1 border border-blue-100 bg-blue-50/50"
                             title="Edit Member Information"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
@@ -421,10 +421,10 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                                 name: `${member.firstName} ${member.lastName}`
                               });
                             }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Delete Member"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </>
                       )}

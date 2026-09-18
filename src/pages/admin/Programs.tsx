@@ -165,17 +165,17 @@ export function AdminPrograms() {
         </div>
 
         {/* Table */}
-        <div ref={tableContainerRef} className="overflow-x-auto">
+        <div ref={tableContainerRef} className="overflow-x-auto overflow-y-hidden">
           <table className="w-full text-left text-xs divide-y divide-slate-200">
-            <thead className="bg-slate-50 sticky top-0 z-20 text-slate-500 uppercase font-bold tracking-wider text-[11px]">
+            <thead className="bg-slate-50 sticky top-0 z-10 text-slate-500 uppercase font-bold tracking-wider text-[11px]">
               <tr>
-                <th scope="col" className="py-3.5 pl-4 sm:pl-6 pr-3 text-left sticky left-0 bg-slate-50 z-30 shadow-[1px_0_0_0_#e2e8f0]">
+                <th scope="col" className="py-3 pl-4 sm:pl-6 pr-3 text-left">
                   Project Title
                 </th>
-                <th scope="col" className="px-3 py-3.5 text-left whitespace-nowrap">Location</th>
-                <th scope="col" className="px-3 py-3.5 text-left whitespace-nowrap">Budget</th>
-                <th scope="col" className="px-3 py-3.5 text-left whitespace-nowrap">Progress</th>
-                <th scope="col" className="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap">Actions</th>
+                <th scope="col" className="px-3 py-3 text-left whitespace-nowrap">Location</th>
+                <th scope="col" className="px-3 py-3 text-left whitespace-nowrap">Budget</th>
+                <th scope="col" className="px-3 py-3 text-left whitespace-nowrap">Progress</th>
+                <th scope="col" className="py-3 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -188,26 +188,26 @@ export function AdminPrograms() {
               ) : (
                 filteredProjects.map((project) => (
                   <tr key={project.id} className="hover:bg-slate-50/60 transition-colors group">
-                    <td className="py-3.5 pl-4 sm:pl-6 pr-3 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 shadow-[1px_0_0_0_#e2e8f0] min-w-0 max-w-[260px] sm:max-w-xs md:max-w-sm">
+                    <td className="py-3 pl-4 sm:pl-6 pr-3">
                       <div className="flex items-center min-w-0">
-                        <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100">
-                          <img className="h-10 w-10 object-cover" src={project.coverImage} alt={project.title} />
+                        <div className="h-9 w-9 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-100">
+                          <img className="h-9 w-9 object-cover" src={project.coverImage} alt={project.title} />
                         </div>
-                        <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                        <div className="ml-3 min-w-0 max-w-[220px] sm:max-w-xs md:max-w-sm">
                           <div className="font-bold text-slate-900 truncate" title={project.title}>{project.title}</div>
                           <div className="text-slate-500 text-[11px] truncate" title={project.description}>{project.description}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3.5 text-slate-600 font-medium whitespace-nowrap">
+                    <td className="px-3 py-3 text-slate-600 font-medium whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                        {project.location}
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate max-w-[120px]">{project.location}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-3.5 text-slate-900 font-bold whitespace-nowrap">${project.budget.toLocaleString()}</td>
-                    <td className="px-3 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
+                    <td className="px-3 py-3 text-slate-900 font-bold whitespace-nowrap">${project.budget.toLocaleString()}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                           project.status === 'Completed' 
                             ? 'bg-blue-100 text-blue-700' 
@@ -215,17 +215,17 @@ export function AdminPrograms() {
                         }`}>
                           {project.status}
                         </span>
-                        <div className="w-20 bg-slate-200 rounded-full h-1.5 overflow-hidden shrink-0">
+                        <div className="w-16 sm:w-20 bg-slate-200 rounded-full h-1.5 overflow-hidden shrink-0">
                           <div 
                             className={`h-1.5 rounded-full ${project.progress === 100 ? 'bg-blue-500' : 'bg-emerald-500'}`} 
                             style={{ width: `${project.progress}%` }}
                           ></div>
                         </div>
-                        <span className="text-xs font-semibold text-slate-700">{project.progress}%</span>
+                        <span className="text-[11px] font-semibold text-slate-700">{project.progress}%</span>
                       </div>
                     </td>
-                    <td className="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="py-3 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
                         {project.status !== 'Completed' && (
                           <button
                             type="button"

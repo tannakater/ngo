@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
+import { APP_VERSION } from '../../config/version';
 import { cn } from '../../lib/utils';
 import { signOutAdmin, getCurrentAdminUser } from '../../lib/auth';
 
@@ -112,7 +113,7 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
             </span>
             <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-2">
               <span>Admin Workspace</span>
-              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] font-bold border border-emerald-700/50">V44</span>
+              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] font-bold border border-emerald-700/50">{APP_VERSION}</span>
             </span>
           </div>
         </Link>
