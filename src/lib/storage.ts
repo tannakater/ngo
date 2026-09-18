@@ -39,7 +39,8 @@ function compressImage(file: File): Promise<string> {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        const maxDim = 1200;
+        // Optimized for ID badges, print center, and web responsive cards (max 600px square)
+        const maxDim = 600;
         if (width > maxDim || height > maxDim) {
           if (width > height) {
             height = Math.round((height * maxDim) / width);
@@ -54,7 +55,7 @@ function compressImage(file: File): Promise<string> {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
+          resolve(canvas.toDataURL('image/jpeg', 0.80));
         } else {
           resolve(e.target?.result as string);
         }

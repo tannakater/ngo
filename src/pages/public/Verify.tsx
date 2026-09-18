@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
+import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { 
   ShieldCheck, ShieldAlert, Search, CheckCircle2, 
   Building2, Calendar, Phone, Mail, UserCheck, QrCode, AlertCircle, Copy, Check,
@@ -20,9 +22,11 @@ export function Verify() {
   const { volunteers, donations } = useNgoStore();
 
   const getParamQuery = () => {
-    return searchParams.get('receipt') || 
-           searchParams.get('id') || 
+    return searchParams.get('id') || 
+           searchParams.get('query') || 
+           searchParams.get('q') || 
            searchParams.get('memberId') || 
+           searchParams.get('receipt') || 
            searchParams.get('code') || 
            '';
   };
@@ -48,6 +52,12 @@ export function Verify() {
     let val = raw.trim();
     if (val.includes('id=')) {
       const match = val.match(/[?&]id=([^&]+)/);
+      if (match) val = decodeURIComponent(match[1]);
+    } else if (val.includes('query=')) {
+      const match = val.match(/[?&]query=([^&]+)/);
+      if (match) val = decodeURIComponent(match[1]);
+    } else if (val.includes('q=')) {
+      const match = val.match(/[?&]q=([^&]+)/);
       if (match) val = decodeURIComponent(match[1]);
     } else if (val.includes('receipt=')) {
       const match = val.match(/[?&]receipt=([^&]+)/);
@@ -79,9 +89,6 @@ export function Verify() {
     const searchFirestore = async () => {
       setIsSearchingDb(true);
       try {
-        const { collection, getDocs, query, where, limit } = await import('firebase/firestore');
-        const { db } = await import('../../lib/firebase');
-        
         let foundData: any = null;
         let foundType: 'member' | 'volunteer' | 'donation' | null = null;
         const uppercaseQuery = exactQuery.toUpperCase();

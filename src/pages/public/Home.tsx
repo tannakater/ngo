@@ -4,6 +4,7 @@ import { ArrowRight, Heart, Users, Globe, Target } from 'lucide-react';
 import { useNgoStore } from '../../store/useNgoStore';
 import { useOrgStore } from '../../store/useOrgStore';
 import { formatCurrency } from '../../utils';
+import { VolunteerTeamSection } from '../../components/public/VolunteerTeamSection';
 
 export function Home() {
   const { stats, projects, campaigns } = useNgoStore();
@@ -27,7 +28,7 @@ export function Home() {
           <span className="inline-block py-1 px-3 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-semibold tracking-wider uppercase mb-6 backdrop-blur-sm">
             Empowering Communities Globally
           </span>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 max-w-4xl mx-auto leading-tight">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 max-w-4xl mx-auto leading-tight">
             Together we can create <span className="text-emerald-400">lasting change.</span>
           </h1>
           <p className="text-xl text-slate-200 mb-10 max-w-2xl mx-auto leading-relaxed">
@@ -130,6 +131,9 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      {/* Verified Volunteer Team Spotlight Side-Scrolling Showcase */}
+      <VolunteerTeamSection />
     </div>
   );
 }

@@ -6,12 +6,15 @@ import {
 } from 'lucide-react';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { VolunteerTeamSection } from '../../components/public/VolunteerTeamSection';
 
 export function About() {
-  const { organization, members } = useOrgStore();
+  const { organization } = useOrgStore();
   const { stats } = useNgoStore();
+  const { language } = useLanguageStore();
 
-  const leadershipTeam = members.slice(0, 4);
+  const isBn = language === 'bn';
 
   const coreValues = [
     {
@@ -177,34 +180,8 @@ export function About() {
         </div>
       </section>
 
-      {/* Leadership Team */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2 block">Our People</span>
-            <h2 className="text-3xl font-extrabold text-slate-900">Dedicated Volunteer Team</h2>
-            <p className="text-slate-600 text-sm mt-3">Our volunteers work together with compassion, responsibility, and dedication to serve people and strengthen communities.</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {leadershipTeam.map((mem) => (
-              <div key={mem.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow text-center p-6">
-                <img 
-                  src={mem.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&q=80'} 
-                  alt={`${mem.firstName} ${mem.lastName}`} 
-                  className="w-28 h-28 rounded-full object-cover mx-auto mb-4 ring-4 ring-slate-100"
-                />
-                <h3 className="text-base font-bold text-slate-900">{mem.firstName} {mem.lastName}</h3>
-                <p className="text-xs font-medium text-emerald-700 mt-1">{mem.designation}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{mem.department}</p>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                  <Shield className="w-3.5 h-3.5 text-emerald-600" /> ID: {mem.memberId}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Dedicated Volunteer Team Section */}
+      <VolunteerTeamSection />
 
       {/* Call to Action */}
       <section className="py-16 bg-emerald-600 text-white text-center">

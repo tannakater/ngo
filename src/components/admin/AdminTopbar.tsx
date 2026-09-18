@@ -9,13 +9,15 @@ const routeTitles: Record<string, { title: string; category: string }> = {
   '/admin/donations': { title: 'Donations & Receipts', category: 'Fundraising' },
   '/admin/campaigns': { title: 'Fundraising Campaigns', category: 'Fundraising' },
   '/admin/programs': { title: 'Programs & Causes', category: 'Field Work' },
-  '/admin/people': { title: 'Members & Volunteers', category: 'Community' },
+  '/admin/people': { title: 'Members & Staff', category: 'Community' },
+  '/admin/volunteers': { title: 'Volunteer Requests', category: 'Community' },
   '/admin/id-cards': { title: 'ID Card Management', category: 'Community' },
   '/admin/id-cards/print': { title: 'Batch Print ID Cards', category: 'Community' },
   '/admin/events': { title: 'Events Calendar', category: 'Community' },
   '/admin/content': { title: 'News & Stories', category: 'Media' },
   '/admin/messages': { title: 'Messages & Inquiries', category: 'Media' },
-  '/admin/drive': { title: 'Drive File Storage', category: 'System' },
+  '/admin/audit-logs': { title: 'Security & Audit Logs', category: 'System' },
+  '/admin/system-users': { title: 'System Access & Roles', category: 'System' },
   '/admin/transparency': { title: 'Transparency & Governance', category: 'System' },
   '/admin/org-settings': { title: 'Organization Profile', category: 'System' },
   '/admin/settings': { title: 'Admin Settings', category: 'System' },
@@ -26,12 +28,14 @@ const searchablePages = [
   { name: 'Donations & Approvals', path: '/admin/donations', desc: 'Verify donations and send receipts' },
   { name: 'Campaigns', path: '/admin/campaigns', desc: 'Manage live fundraising campaigns' },
   { name: 'Programs & Causes', path: '/admin/programs', desc: 'Track field projects and budgets' },
-  { name: 'Members & Volunteers', path: '/admin/people', desc: 'Directory, rosters, and credentials' },
+  { name: 'Members & Staff', path: '/admin/people', desc: 'Directory, rosters, and credentials' },
+  { name: 'Volunteer Requests', path: '/admin/volunteers', desc: 'Review volunteer applications and approvals' },
   { name: 'ID Card Templates & Print', path: '/admin/id-cards', desc: 'Generate and batch print ID cards' },
   { name: 'Events', path: '/admin/events', desc: 'Upcoming field events and drives' },
   { name: 'News & Stories', path: '/admin/content', desc: 'Publish blogs, news, and press releases' },
   { name: 'Messages', path: '/admin/messages', desc: 'Public inquiries and contact form submissions' },
-  { name: 'Drive Storage', path: '/admin/drive', desc: 'Official documents, badges, and folders' },
+  { name: 'Audit Logs', path: '/admin/audit-logs', desc: 'System activity history and access logs' },
+  { name: 'System Users', path: '/admin/system-users', desc: 'Role management and administrator credentials' },
   { name: 'Transparency', path: '/admin/transparency', desc: 'Financial records and compliance documents' },
   { name: 'Organization Profile', path: '/admin/org-settings', desc: 'NGO name, currency, logo, and contacts' },
   { name: 'Settings', path: '/admin/settings', desc: 'Security, roles, and administrative options' },
@@ -91,7 +95,7 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
       </div>
 
       {/* Center: Quick Search Bar */}
-      <div className="hidden md:flex flex-1 max-w-md mx-6 relative">
+      <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-6 relative">
         <div className="relative w-full">
           <Search className="pointer-events-none absolute inset-y-0 left-0 h-full w-4 text-slate-400 ml-3.5" />
           <input
@@ -135,21 +139,22 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {/* Version Badge */}
-        <div className="hidden xs:inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-mono font-bold tracking-wider shadow-2xs">
-          <span>V37</span>
+        <div className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-mono font-bold tracking-wider shadow-2xs">
+          <span>V44</span>
         </div>
 
         {/* Pending Donations Alert Pill */}
         {pendingDonations.length > 0 && (
           <Link
             to="/admin/donations"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
-            title={`${pendingDonations.length} donations require review & receipt`}
+            className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+            title={`${pendingDonations.length} donation(s) require review`}
           >
-            <Heart className="w-3.5 h-3.5 fill-current" />
-            <span>{pendingDonations.length} Pending Approval</span>
+            <Heart className="w-3.5 h-3.5 fill-current text-white" />
+            <span className="font-bold">{pendingDonations.length}</span>
+            <span className="hidden md:inline">Pending</span>
           </Link>
         )}
 
@@ -158,12 +163,12 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
           to="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs"
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs"
           title="Open public website in a new window"
         >
           <Globe className="w-3.5 h-3.5 text-emerald-600" />
-          <span className="hidden md:inline">Public Site</span>
-          <ExternalLink className="w-3 h-3 text-slate-400" />
+          <span className="hidden sm:inline">View Site</span>
+          <ExternalLink className="w-3 h-3 text-slate-400 hidden sm:inline" />
         </Link>
       </div>
     </header>

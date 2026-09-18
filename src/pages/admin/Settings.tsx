@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
 import { 
   Settings, Save, TrendingUp, CheckCircle2, RotateCcw, Download, 
   ShieldCheck, Globe2, CreditCard, Hash, AlertTriangle,
-  Building2, Palette, Phone, Mail, MapPin, Loader2
+  Building2, Palette, Phone, Mail, MapPin, Loader2, UploadCloud
 } from 'lucide-react';
 import { ConfirmModal } from '../../components/ConfirmModal';
 
@@ -13,6 +13,8 @@ export function AdminSettings() {
   const { projects, campaigns, donations, stats, updateStats } = useNgoStore();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: organization.name || 'Global Hope Foundation',
@@ -127,6 +129,51 @@ export function AdminSettings() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  const handleImportBackupJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        let restoredCount = 0;
+        if (parsed.organization) {
+          updateOrganization(parsed.organization);
+        }
+        if (Array.isArray(parsed.members) && parsed.members.length > 0) {
+          useOrgStore.setState({ members: parsed.members });
+          try {
+            const raw = JSON.stringify({ organization: parsed.organization || organization, members: parsed.members });
+            localStorage.setItem('ngo_org_store_data', raw);
+            localStorage.setItem('ngo_org_data', raw);
+          } catch(e) {}
+          restoredCount = parsed.members.length;
+        }
+        if (Array.isArray(parsed.donations) && parsed.donations.length > 0) {
+          useNgoStore.setState({ donations: parsed.donations });
+        }
+        if (Array.isArray(parsed.campaigns) && parsed.campaigns.length > 0) {
+          useNgoStore.setState({ campaigns: parsed.campaigns });
+        }
+        if (Array.isArray(parsed.projects) && parsed.projects.length > 0) {
+          useNgoStore.setState({ projects: parsed.projects });
+        }
+
+        setImportNotice(`Backup successfully restored! Restored ${restoredCount} member profiles.`);
+        setTimeout(() => setImportNotice(null), 6000);
+      } catch (err) {
+        console.error('Failed to parse backup JSON:', err);
+        setImportNotice('Failed to restore backup: Invalid JSON file format.');
+        setTimeout(() => setImportNotice(null), 6000);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleResetData = () => {
@@ -530,21 +577,45 @@ export function AdminSettings() {
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
-          Export a complete, unencrypted JSON snapshot of your organization database, including all registered members, donations, ID templates, and causes.
+          Export a complete, unencrypted JSON snapshot of your organization database, including all registered members, photos, donations, ID templates, and causes — or restore from a previously saved JSON snapshot.
         </p>
 
-        <div className="flex flex-wrap gap-4 pt-2">
+        {importNotice && (
+          <div className="bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 text-xs px-4 py-3 rounded-xl flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>{importNotice}</span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-4 pt-2">
           <button
             type="button"
             onClick={exportBackupJSON}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors shadow-sm"
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
           >
             <Download className="w-4 h-4" /> Download Complete JSON Snapshot
           </button>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportBackupJSON}
+            accept=".json,application/json"
+            className="hidden"
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <UploadCloud className="w-4 h-4 text-emerald-400" /> Restore from JSON Backup
+          </button>
+
           <button
             type="button"
             onClick={() => setShowResetConfirm(true)}
-            className="px-5 py-2.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-bold rounded-xl flex items-center gap-2 transition-colors"
+            className="px-5 py-2.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs font-bold rounded-xl flex items-center gap-2 transition-colors cursor-pointer ml-auto"
           >
             <RotateCcw className="w-4 h-4" /> Reset to Initial Defaults
           </button>

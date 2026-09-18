@@ -16,6 +16,7 @@ import { Verify } from './pages/public/Verify';
 import { Volunteer } from './pages/public/Volunteer';
 import { Contact } from './pages/public/Contact';
 import { Transparency } from './pages/public/Transparency';
+import { TrackDonation } from './pages/public/TrackDonation';
 
 // Admin Pages (existing from)
 import { Dashboard } from './pages/Dashboard';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="volunteer" element={<Volunteer />} />
           <Route path="contact" element={<Contact />} />
           <Route path="transparency" element={<Transparency />} />
+          <Route path="track-donation" element={<TrackDonation />} />
         </Route>
 
         {/* Secure Admin Routes */}
@@ -83,7 +85,6 @@ export default function App() {
           </Route>
 
           <Route path="events" element={<AdminEvents />} />
-          <Route path="system-users" element={<SystemUsers />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="content" element={<AdminContent />} />
           <Route path="messages" element={<AdminMessages />} />

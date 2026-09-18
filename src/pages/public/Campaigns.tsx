@@ -39,7 +39,7 @@ export function Campaigns() {
         <div className="flex justify-center gap-2 mb-10">
           {(['All', 'Active', 'Completed'] as const).map((tab) => (
             <button
-              key={tab}
+              key={`campaign-tab-${tab}`}
               onClick={() => setFilter(tab)}
               className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
                 filter === tab

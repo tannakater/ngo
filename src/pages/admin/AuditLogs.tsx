@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuditStore } from '../../store/useAuditStore';
 import { Activity, Search, Filter } from 'lucide-react';
 import { format } from 'date-fns';
@@ -19,7 +19,16 @@ export function AuditLogs() {
     return matchesSearch && matchesEntity;
   });
 
-  const uniqueEntities = ['All', ...Array.from(new Set(logs.map(l => l.entity)))];
+  const uniqueEntities = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach(l => {
+      const ent = l.entity ? l.entity.trim() : '';
+      if (ent && ent.toLowerCase() !== 'all') {
+        set.add(ent);
+      }
+    });
+    return ['All', ...Array.from(set)];
+  }, [logs]);
 
   return (
     <div className="space-y-6">
@@ -52,8 +61,8 @@ export function AuditLogs() {
               onChange={(e) => setEntityFilter(e.target.value)}
               className="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
-              {uniqueEntities.map(entity => (
-                <option key={entity} value={entity}>{entity}</option>
+              {uniqueEntities.map((entity, idx) => (
+                <option key={`entity-opt-${entity}-${idx}`} value={entity}>{entity}</option>
               ))}
             </select>
           </div>

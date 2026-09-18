@@ -326,7 +326,7 @@ export function QuickGenModal({ isOpen, onClose, initialMemberId }: QuickGenModa
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                     {(['All', 'Volunteer', 'Staff', 'Member'] as const).map((r) => (
                       <button
-                        key={r}
+                        key={`role-filter-${r}`}
                         type="button"
                         onClick={() => setRoleFilter(r)}
                         className={cn(

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building, Users, Calendar, Megaphone, 
   IdCard, Settings, LogOut, Heart, Shield,
   MessageSquare, FileText, Briefcase, Activity, HardDrive,
-  ExternalLink, Globe, Sparkles, HeartHandshake, ClipboardList
+  ExternalLink, Globe, Sparkles, HeartHandshake, ClipboardList, X
 } from 'lucide-react';
 import { useOrgStore } from '../../store/useOrgStore';
 import { useNgoStore } from '../../store/useNgoStore';
@@ -103,19 +103,31 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
       sidebarOpen ? "translate-x-0" : "-translate-x-full"
     )}>
       {/* Brand Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between px-5 bg-slate-950/60 border-b border-slate-800/80">
-        <Link to="/admin" className="flex items-center gap-3 overflow-hidden group">
+      <div className="flex h-16 shrink-0 items-center justify-between px-4 sm:px-5 bg-slate-950/60 border-b border-slate-800/80">
+        <Link to="/admin" className="flex items-center gap-3 overflow-hidden group min-w-0" onClick={() => setSidebarOpen?.(false)}>
           <img src="/daksheba.jpg" alt="Logo" className="h-9 w-9 object-cover rounded-lg shrink-0 border border-slate-700" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-bold text-white truncate tracking-tight group-hover:text-emerald-400 transition-colors">
               {organization.name || 'NGO Platform'}
             </span>
             <span className="text-[11px] font-semibold text-emerald-400/90 flex items-center gap-2">
-              Admin Workspace
-              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] border border-emerald-700/50">V37</span>
+              <span>Admin Workspace</span>
+              <span className="px-1.5 py-0.2 bg-emerald-900/80 text-emerald-300 rounded font-mono text-[9px] font-bold border border-emerald-700/50">V44</span>
             </span>
           </div>
         </Link>
+
+        {/* Mobile close button */}
+        {setSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
+            aria-label="Close navigation drawer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
       
       {/* Categorized Navigation */}

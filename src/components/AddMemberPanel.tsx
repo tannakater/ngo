@@ -1,7 +1,7 @@
 import { getOptimizeImageUrl } from "../lib/utils";
 import React, { useRef, useState, useEffect } from 'react';
-import { X, UploadCloud, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useOrgStore, Member } from '../store/useOrgStore';
+import { X, UploadCloud, Loader2, AlertCircle, RefreshCw, Hash } from 'lucide-react';
+import { useOrgStore, Member, getNextSequentialMemberId } from '../store/useOrgStore';
 import { uploadImage } from '../lib/storage';
 
 interface AddMemberPanelProps {
@@ -12,7 +12,7 @@ interface AddMemberPanelProps {
 }
 
 export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegenerate }: AddMemberPanelProps) {
-  const { addMember, updateMember, customFields, userId } = useOrgStore();
+  const { addMember, updateMember, customFields, userId, members } = useOrgStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -57,10 +57,11 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
       });
       setCustomData(memberToEdit.customFields || {});
     } else {
+      const nextId = getNextSequentialMemberId(members);
       setFormData({
         firstName: '',
         lastName: '',
-        memberId: '',
+        memberId: nextId,
         role: 'Member',
         designation: '',
         department: '',
@@ -76,7 +77,7 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
       });
       setCustomData({});
     }
-  }, [memberToEdit, isOpen]);
+  }, [memberToEdit, isOpen, members]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -243,6 +244,27 @@ export function AddMemberPanel({ isOpen, onClose, memberToEdit, onSaveAndRegener
                 <option value="Pending">Pending</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold uppercase text-slate-700">
+                Member ID
+              </label>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                Auto-Sequenced
+              </span>
+            </div>
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="e.g. DAK-261009"
+                value={formData.memberId} 
+                onChange={e => setFormData({...formData, memberId: e.target.value.toUpperCase()})} 
+                className="w-full border border-slate-200 rounded-xl shadow-sm text-xs p-2.5 font-mono font-bold text-slate-800 bg-slate-50/50 focus:ring-2 focus:ring-emerald-500 focus:outline-none" 
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">Sequential numbering ensures no gaps in ID ledger cards.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

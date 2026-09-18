@@ -19,7 +19,8 @@ export function getCurrencySymbol(currency?: string): string {
   }
 }
 
-export function formatCurrency(amount: number, currency?: string): string {
+export function formatCurrency(amount?: number | null, currency?: string): string {
   const symbol = getCurrencySymbol(currency);
-  return `${symbol}${amount.toLocaleString()}`;
+  const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  return `${symbol}${safeAmount.toLocaleString()}`;
 }
