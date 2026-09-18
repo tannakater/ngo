@@ -153,7 +153,7 @@ export const signInWithEmail = async (
         if (createErr.code === 'auth/email-already-in-use') {
           throw new Error('Invalid email or password. Please try again.');
         }
-        throw new Error(fbErr.message || 'Authentication failed. Please try again.');
+        throw new Error('Invalid email or password. Please try again.');
       }
     }
 

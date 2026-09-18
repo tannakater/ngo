@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { isQuotaExhausted, recordQuotaExhausted } from '../lib/quotaManager';
+import { useAuditStore } from './useAuditStore';
 import { 
   markIdDeleted, 
   isIdDeleted, 
@@ -1093,6 +1094,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().projects];
     set({ projects: updated });
     saveStoredNgoData({ projects: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Programs',
+      entity: 'Field Program',
+      entityId: id,
+      details: `Created new field program: ${validated.title} [Location: ${validated.location}]`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'projects', id), sanitizeForFirestore(validated));
@@ -1103,9 +1113,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
   },
   updateProject: async (id, projectUpdate) => {
     if (isIdDeleted(id)) return;
+    const oldProj = get().projects.find(p => p.id === id);
     const updated = get().projects.map(p => p.id === id ? { ...p, ...projectUpdate } : p);
     set({ projects: updated });
     saveStoredNgoData({ projects: updated });
+
+    if (oldProj) {
+      useAuditStore.getState().addLog({
+        action: 'Updated',
+        category: 'Programs',
+        entity: 'Field Program',
+        entityId: id,
+        details: `Updated field program: ${oldProj.title}`
+      });
+    }
+
     if (!isQuotaExhausted()) {
       try {
         const proj = updated.find(p => p.id === id);
@@ -1118,10 +1140,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     }
   },
   deleteProject: async (id) => {
+    const oldProj = get().projects.find(p => p.id === id);
     propagateRecordDeletion(id, 'project');
     const updated = get().projects.filter(p => p.id !== id && !isIdDeleted(p.id));
     set({ projects: updated });
     saveStoredNgoData({ projects: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Deleted',
+      category: 'Programs',
+      severity: 'warning',
+      entity: 'Field Program',
+      entityId: id,
+      details: `Removed field program: ${oldProj?.title || id}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'projects', id));
@@ -1139,6 +1172,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().campaigns];
     set({ campaigns: updated });
     saveStoredNgoData({ campaigns: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Campaigns',
+      entity: 'Campaign',
+      entityId: id,
+      details: `Launched fundraising campaign: ${validated.name} [Target: ${validated.goalAmount.toLocaleString()} BDT]`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(validated));
@@ -1149,9 +1191,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
   },
   updateCampaign: async (id, campaignUpdate) => {
     if (isIdDeleted(id)) return;
+    const oldCamp = get().campaigns.find(c => c.id === id);
     const updated = get().campaigns.map(c => c.id === id ? { ...c, ...campaignUpdate } : c);
     set({ campaigns: updated });
     saveStoredNgoData({ campaigns: updated });
+
+    if (oldCamp) {
+      useAuditStore.getState().addLog({
+        action: 'Updated',
+        category: 'Campaigns',
+        entity: 'Campaign',
+        entityId: id,
+        details: `Updated fundraising campaign: ${oldCamp.name}`
+      });
+    }
+
     if (!isQuotaExhausted()) {
       try {
         const camp = updated.find(c => c.id === id);
@@ -1164,10 +1218,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     }
   },
   deleteCampaign: async (id) => {
+    const oldCamp = get().campaigns.find(c => c.id === id);
     propagateRecordDeletion(id, 'campaign');
     const updated = get().campaigns.filter(c => c.id !== id && !isIdDeleted(c.id));
     set({ campaigns: updated });
     saveStoredNgoData({ campaigns: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Deleted',
+      category: 'Campaigns',
+      severity: 'warning',
+      entity: 'Campaign',
+      entityId: id,
+      details: `Removed fundraising campaign: ${oldCamp?.name || id}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'campaigns', id));
@@ -1185,6 +1250,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().volunteers];
     set({ volunteers: updated });
     saveStoredNgoData({ volunteers: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Volunteers',
+      entity: 'Volunteer',
+      entityId: id,
+      details: `Enrolled volunteer: ${validated.name} (${validated.department}) [ID: ${validated.volunteerId}]`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'volunteers', id), sanitizeForFirestore(validated));
@@ -1195,9 +1269,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
   },
   updateVolunteer: async (id, volunteerUpdate) => {
     if (isIdDeleted(id)) return;
+    const oldVol = get().volunteers.find(v => v.id === id);
     const updated = get().volunteers.map(v => v.id === id ? { ...v, ...volunteerUpdate } : v);
     set({ volunteers: updated });
     saveStoredNgoData({ volunteers: updated });
+
+    if (oldVol) {
+      useAuditStore.getState().addLog({
+        action: 'Updated',
+        category: 'Volunteers',
+        entity: 'Volunteer',
+        entityId: id,
+        details: `Updated volunteer records for: ${oldVol.name} [ID: ${oldVol.volunteerId}]`
+      });
+    }
+
     if (!isQuotaExhausted()) {
       try {
         const vol = updated.find(v => v.id === id);
@@ -1210,10 +1296,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     }
   },
   deleteVolunteer: async (id) => {
+    const oldVol = get().volunteers.find(v => v.id === id);
     propagateRecordDeletion(id, 'volunteer');
     const updated = get().volunteers.filter(v => v.id !== id && !isIdDeleted(v.id));
     set({ volunteers: updated });
     saveStoredNgoData({ volunteers: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Deleted',
+      category: 'Volunteers',
+      severity: 'warning',
+      entity: 'Volunteer',
+      entityId: id,
+      details: `Removed volunteer record: ${oldVol?.name || id}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'volunteers', id));
@@ -1231,6 +1328,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().events];
     set({ events: updated });
     saveStoredNgoData({ events: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Content',
+      entity: 'Event',
+      entityId: id,
+      details: `Scheduled event: ${validated.title} on ${validated.date}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'events', id), sanitizeForFirestore(validated));
@@ -1277,6 +1383,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().news];
     set({ news: updated });
     saveStoredNgoData({ news: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Content',
+      entity: 'News Article',
+      entityId: id,
+      details: `Published news article: ${validated.title}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'news', id), sanitizeForFirestore(validated));
@@ -1331,6 +1446,23 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().donations];
     set({ donations: updated });
     saveStoredNgoData({ donations: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Donations',
+      severity: 'info',
+      entity: 'Donation',
+      entityId: id,
+      details: `Received donation: ৳${validated.amount.toLocaleString()} from ${validated.donorName} [Receipt: ${validated.receiptNumber}, Method: ${validated.paymentMethod}]`,
+      metadata: {
+        receiptNumber: validated.receiptNumber,
+        amount: validated.amount,
+        donorName: validated.donorName,
+        paymentMethod: validated.paymentMethod,
+        currency: validated.currency
+      }
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'donations', id), sanitizeForFirestore(validated));
@@ -1342,9 +1474,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
   },
   updateDonation: async (id, donationUpdate) => {
     if (isIdDeleted(id)) return;
+    const oldDon = get().donations.find(d => d.id === id);
     const updated = get().donations.map(d => d.id === id ? { ...d, ...donationUpdate } : d);
     set({ donations: updated });
     saveStoredNgoData({ donations: updated });
+
+    if (oldDon) {
+      useAuditStore.getState().addLog({
+        action: 'Updated',
+        category: 'Donations',
+        entity: 'Donation',
+        entityId: id,
+        details: `Updated donation record for receipt: ${oldDon.receiptNumber}`
+      });
+    }
+
     if (!isQuotaExhausted()) {
       try {
         const don = updated.find(d => d.id === id);
@@ -1377,6 +1521,23 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     set({ donations: updated });
     saveStoredNgoData({ donations: updated });
     
+    useAuditStore.getState().addLog({
+      action: 'Approved',
+      category: 'Donations',
+      severity: 'success',
+      entity: 'Donation Audit',
+      entityId: id,
+      details: `Audited and verified donation receipt ${updatedDon.receiptNumber} (৳${updatedDon.amount.toLocaleString()}) by ${officer.name} (${officer.role})`,
+      metadata: {
+        receiptNumber: updatedDon.receiptNumber,
+        amount: updatedDon.amount,
+        donorName: updatedDon.donorName,
+        approvedBy: officer.name,
+        approverRole: officer.role,
+        approvedAt: new Date().toISOString()
+      }
+    });
+
     // Also update campaign currentAmount if campaign is matched
     const campaign = get().campaigns.find(c => isCampaignMatch(c, updatedDon.campaignId, updatedDon.campaignName));
     if (campaign && !isIdDeleted(campaign.id)) {
@@ -1408,10 +1569,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     return updatedDon;
   },
   deleteDonation: async (id) => {
+    const oldDon = get().donations.find(d => d.id === id);
     propagateRecordDeletion(id, 'donation');
     const updated = get().donations.filter(d => d.id !== id && !isIdDeleted(d.id));
     set({ donations: updated });
     saveStoredNgoData({ donations: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Deleted',
+      category: 'Donations',
+      severity: 'warning',
+      entity: 'Donation',
+      entityId: id,
+      details: `Cancelled/deleted donation record: ${oldDon?.receiptNumber || id} (৳${oldDon?.amount?.toLocaleString() || 0})`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'donations', id));
@@ -1481,6 +1653,15 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().documents];
     set({ documents: updated });
     saveStoredNgoData({ documents: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Created',
+      category: 'Content',
+      entity: 'Transparency Document',
+      entityId: id,
+      details: `Uploaded audit/transparency document: ${validated.title} (${validated.category}) [Year: ${validated.year}]`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'documents', id), sanitizeForFirestore(validated));
@@ -1506,10 +1687,21 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     }
   },
   deleteDocument: async (id) => {
+    const oldDoc = get().documents.find(d => d.id === id);
     propagateRecordDeletion(id, 'document');
     const updated = get().documents.filter(d => d.id !== id && !isIdDeleted(d.id));
     set({ documents: updated });
     saveStoredNgoData({ documents: updated });
+
+    useAuditStore.getState().addLog({
+      action: 'Deleted',
+      category: 'Content',
+      severity: 'warning',
+      entity: 'Transparency Document',
+      entityId: id,
+      details: `Removed transparency document: ${oldDoc?.title || id}`
+    });
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'documents', id));

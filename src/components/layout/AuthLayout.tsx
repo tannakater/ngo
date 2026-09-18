@@ -44,6 +44,25 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [syncWithFirebase, syncNgoWithUser]);
 
+  const sanitizeAuthError = (err: any, fallback: string): string => {
+    if (!err) return fallback;
+    const msg = String(err.message || err.code || err || '').toLowerCase();
+    
+    if (msg.includes('popup-closed') || msg.includes('cancelled') || msg.includes('canceled')) {
+      return 'Sign-in was cancelled.';
+    }
+    if (msg.includes('network') || msg.includes('offline') || msg.includes('timeout')) {
+      return 'Network connection issue. Please check your internet and try again.';
+    }
+    if (msg.includes('privilege') || msg.includes('denied') || msg.includes('unauthorized') || msg.includes('role')) {
+      return 'Access denied. This account does not have administrative privileges.';
+    }
+    if (msg.includes('password') || msg.includes('email') || msg.includes('credential') || msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid') || msg.includes('auth')) {
+      return 'Invalid email or password. Please try again.';
+    }
+    return 'Invalid email or password. Please try again.';
+  };
+
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     setSubmitting(true);
@@ -56,12 +75,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         syncNgoWithUser(result.user.uid);
       }
     } catch (err: any) {
-      console.error('Google sign in failure:', err);
-      let msg = err?.message || 'Failed to sign in with Google.';
-      if (msg.includes('Firebase')) {
-        msg = msg.replace(/Firebase:?\s*/i, '').replace(/\(auth\/.*\)/i, '').trim();
-      }
-      setErrorMessage(msg);
+      console.warn('Google sign-in attempt warning:', err);
+      setErrorMessage(sanitizeAuthError(err, 'Access denied or sign-in cancelled.'));
     } finally {
       setSubmitting(false);
     }
@@ -81,14 +96,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         syncNgoWithUser(admin.uid);
       }
     } catch (err: any) {
-      console.error('Email sign in failure:', err);
-      let msg = err?.message || 'Invalid email or password. Please try again.';
-      if (msg.includes('auth/')) {
-        msg = 'Invalid email or password. Please try again.';
-      } else if (msg.includes('Firebase')) {
-        msg = msg.replace(/Firebase:?\s*/i, '').replace(/\(auth\/.*\)/i, '').trim();
-      }
-      setErrorMessage(msg);
+      console.warn('Email sign-in attempt warning:', err);
+      setErrorMessage(sanitizeAuthError(err, 'Invalid email or password. Please try again.'));
     } finally {
       setSubmitting(false);
     }

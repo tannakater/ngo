@@ -44,18 +44,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
             
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-slate-900">
-                {this.props.fallbackTitle || 'Something went wrong'}
+                {this.props.fallbackTitle || 'Unable to load page'}
               </h2>
               <p className="text-xs text-slate-500">
-                An unexpected interface error occurred. Please refresh or return to the home screen.
+                A temporary display error occurred. Please reload the page or return to the main dashboard.
               </p>
             </div>
-
-            {this.state.error?.message && (
-              <div className="bg-slate-100 rounded-lg p-2.5 text-left text-[11px] font-mono text-slate-700 max-h-24 overflow-y-auto break-words">
-                {this.state.error.message}
-              </div>
-            )}
 
             <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
               <button
