@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { isQuotaExhausted, recordQuotaExhausted } from '../lib/quotaManager';
 import { useAuditStore } from './useAuditStore';
@@ -1058,7 +1059,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       const statsRef = doc(db, 'app_stats', 'main');
       try {
         const statsSnap = await getDocs(collection(db, 'app_stats'));
-        if (statsSnap.empty) {
+        if (statsSnap.empty && auth.currentUser) {
           await setDoc(statsRef, sanitizeForFirestore(get().stats));
         }
       } catch (e: any) {
@@ -1463,6 +1464,38 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }
     });
 
+    // Supabase Dual-Write
+    if (supabase) {
+      Promise.resolve(
+        supabase.from('donations').upsert([{
+          id,
+          receipt_number: validated.receiptNumber || null,
+          donor_name: validated.donorName,
+          donor_email: validated.donorEmail || null,
+          donor_phone: validated.donorPhone || null,
+          amount: validated.amount,
+          currency: validated.currency || 'BDT',
+          frequency: validated.frequency || 'one-time',
+          transaction_id: validated.transactionId || null,
+          is_anonymous: Boolean(validated.isAnonymous),
+          dedication: validated.dedication || null,
+          campaign_id: validated.campaignId || null,
+          campaign_name: validated.campaignName || null,
+          payment_method: validated.paymentMethod || 'card',
+          status: validated.status || 'Pending',
+          approved_at: validated.approvedAt || null,
+          approved_by: validated.approvedBy || null,
+          approver_role: validated.approverRole || null,
+          receipt_sent: Boolean(validated.receiptSent),
+          sms_sent: Boolean(validated.smsSent),
+          email_sent: Boolean(validated.emailSent),
+          created_at: validated.createdAt || new Date().toISOString()
+        }])
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase donation upsert:', error.message);
+      }).catch(err => console.warn('Supabase donation error:', err));
+    }
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'donations', id), sanitizeForFirestore(validated));
@@ -1559,6 +1592,23 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       }
     }
 
+    // Supabase Dual-Write Update
+    if (supabase) {
+      Promise.resolve(
+        supabase.from('donations').update({
+          status: 'Completed',
+          approved_at: new Date().toISOString(),
+          approved_by: officer.name,
+          approver_role: officer.role,
+          receipt_sent: true,
+          sms_sent: true,
+          email_sent: true
+        }).eq('id', id)
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase donation approval update:', error.message);
+      }).catch(err => console.warn('Supabase donation approval error:', err));
+    }
+
     if (!isQuotaExhausted()) {
       try {
         await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any);
@@ -1606,6 +1656,25 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = [validated, ...get().messages];
     set({ messages: updated });
     saveStoredNgoData({ messages: updated });
+
+    // Supabase Dual-Write
+    if (supabase) {
+      Promise.resolve(
+        supabase.from('messages').upsert([{
+          id,
+          name: validated.name || '',
+          email: validated.email || '',
+          phone: validated.phone || null,
+          subject: validated.subject || 'General Inquiry',
+          message: validated.message || '',
+          is_read: false,
+          created_at: validated.createdAt || new Date().toISOString()
+        }])
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase message upsert:', error.message);
+      }).catch(err => console.warn('Supabase message error:', err));
+    }
+
     if (!isQuotaExhausted()) {
       try {
         await setDoc(doc(db, 'messages', id), sanitizeForFirestore(validated));

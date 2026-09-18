@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useOrgStore } from '../../store/useOrgStore';
+import { useNgoStore } from '../../store/useNgoStore';
 import { Heart, Loader2, CheckCircle } from 'lucide-react';
 
 export function Volunteer() {
-  const { addMember, userId } = useOrgStore();
+  const { addMember } = useOrgStore();
+  const { addVolunteer } = useNgoStore();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -22,27 +24,38 @@ export function Volunteer() {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 1000));
-    
-    addMember({
-      memberId: 'PENDING-VOLUNTEER',
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      department: formData.department,
-      address: formData.address,
-      photoUrl: formData.photoUrl,
-      role: 'Volunteer',
-      designation: 'Volunteer Applicant',
-      status: 'Pending', // Pending approval by admin
-      bloodGroup: '',
-      dateOfBirth: '',
-      joiningDate: new Date().toISOString().split('T')[0],
-      emergencyContact: '',
-      customFields: {}
-    });
+    try {
+      await Promise.all([
+        addMember({
+          memberId: 'PENDING-VOLUNTEER',
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          department: formData.department,
+          address: formData.address,
+          photoUrl: formData.photoUrl,
+          role: 'Volunteer',
+          designation: 'Volunteer Applicant',
+          status: 'Pending',
+          bloodGroup: '',
+          dateOfBirth: '',
+          joiningDate: new Date().toISOString().split('T')[0],
+          emergencyContact: '',
+          customFields: {}
+        }),
+        addVolunteer({
+          volunteerId: 'PENDING-VOLUNTEER',
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email,
+          phone: formData.phone,
+          department: formData.department,
+          status: 'Pending'
+        })
+      ]);
+    } catch (err) {
+      console.warn('Volunteer submission handled:', err);
+    }
     
     setIsSubmitting(false);
     setSuccess(true);

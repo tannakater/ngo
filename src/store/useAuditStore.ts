@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db, auth } from '../lib/firebase';
 import { collection, onSnapshot, setDoc, doc, getDocs, limit, query, orderBy } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 export type AuditAction = 
@@ -126,6 +127,47 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     if (unsub) unsub();
     set({ isLoading: true });
 
+    // 1. Supabase Fetch & Realtime Listener
+    if (supabase) {
+      Promise.resolve(
+        supabase
+          .from('audit_logs')
+          .select('*')
+          .order('timestamp', { ascending: false })
+          .limit(150)
+      )
+        .then(({ data, error }) => {
+          if (!error && Array.isArray(data)) {
+            const fetched: AuditLog[] = data.map(d => ({
+              id: d.id,
+              action: d.action,
+              category: d.category || inferCategory(d.entity || '', d.action || 'Updated'),
+              severity: inferSeverity(d.action || 'Updated'),
+              entity: d.entity,
+              entityId: d.entity_id,
+              details: d.details,
+              performedBy: d.performed_by || 'Executive Directorate',
+              performedByEmail: d.performed_by_email || 'admin@dakseba.org',
+              performedByRole: d.performed_by_role || 'Administrator',
+              timestamp: d.timestamp || new Date().toISOString()
+            }));
+
+            const local = getStoredLogs();
+            const map = new Map<string, AuditLog>();
+            local.forEach(l => map.set(l.id, l));
+            fetched.forEach(f => map.set(f.id, f));
+
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+
+            set({ logs: merged, isLoading: false });
+            saveStoredLogs(merged);
+          }
+        })
+        .catch(err => console.warn('Supabase audit logs fetch warning:', err));
+    }
+
     try {
       const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(150));
       unsub = onSnapshot(q, (snap) => {
@@ -191,6 +233,26 @@ export const useAuditStore = create<AuditState>((set, get) => ({
     currentLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     set({ logs: currentLogs });
     saveStoredLogs(currentLogs);
+
+    // Write to Supabase table
+    if (supabase) {
+      Promise.resolve(
+        supabase.from('audit_logs').insert([{
+          id,
+          action: log.action,
+          category: log.category,
+          entity: log.entity,
+          entity_id: log.entityId || null,
+          details: log.details,
+          performed_by: log.performedBy,
+          performed_by_email: log.performedByEmail,
+          performed_by_role: log.performedByRole,
+          timestamp: log.timestamp
+        }])
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase audit insert:', error.message);
+      }).catch(err => console.warn('Supabase audit insert error:', err));
+    }
 
     try {
       await setDoc(doc(db, 'audit_logs', id), JSON.parse(JSON.stringify(log)));

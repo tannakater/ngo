@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { Organization, Member, CustomFieldDefinition, CardTemplate, WebUser } from '../types';
 import { db, auth } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { useAuditStore } from './useAuditStore';
 import { isQuotaExhausted, recordQuotaExhausted } from '../lib/quotaManager';
@@ -459,16 +460,18 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       const userDocRef = doc(db, 'users', workspaceId);
       const docSnap = await getDoc(userDocRef);
       if (!docSnap.exists()) {
-        await setDoc(userDocRef, sanitizeForFirestore({
-          organization: get().organization,
-          customFields: get().customFields,
-          templates: get().templates,
-          activeTemplateId: get().activeTemplateId,
-          webUsers: get().webUsers
-        }));
+        if (auth.currentUser) {
+          await setDoc(userDocRef, sanitizeForFirestore({
+            organization: get().organization,
+            customFields: get().customFields,
+            templates: get().templates,
+            activeTemplateId: get().activeTemplateId,
+            webUsers: get().webUsers
+          }));
+        }
       } else {
         const data = docSnap.data();
-        if (!data.webUsers && get().webUsers.length > 0) {
+        if (!data.webUsers && get().webUsers.length > 0 && auth.currentUser) {
           try {
             await updateDoc(userDocRef, { webUsers: sanitizeForFirestore(get().webUsers) });
           } catch (e: any) {
@@ -588,8 +591,37 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ members: updatedMembers });
     saveStoredOrgData({ members: updatedMembers });
 
+    // Supabase dual-sync
+    if (supabase) {
+      const isPublic = !auth.currentUser || !userId;
+      const targetTable = isPublic ? 'public_volunteers' : 'members';
+      Promise.resolve(
+        supabase.from(targetTable).upsert([{
+          id: newId,
+          member_id: newMember.memberId,
+          first_name: newMember.firstName,
+          last_name: newMember.lastName,
+          email: newMember.email || null,
+          phone: newMember.phone || null,
+          role: newMember.role || 'Volunteer',
+          designation: newMember.designation || (isPublic ? 'Volunteer Applicant' : ''),
+          department: newMember.department || '',
+          blood_group: newMember.bloodGroup || '',
+          date_of_birth: newMember.dateOfBirth || '',
+          joining_date: newMember.joiningDate || '',
+          address: newMember.address || '',
+          photo_url: newMember.photoUrl || '',
+          emergency_contact: newMember.emergencyContact || '',
+          status: newMember.status || (isPublic ? 'Pending' : 'Active'),
+          custom_fields: newMember.customFields || {}
+        }])
+      ).then(({ error }) => {
+        if (error) console.warn('Supabase member upsert:', error.message);
+      }).catch(err => console.warn('Supabase member error:', err));
+    }
+
     if (!isQuotaExhausted()) {
-      if (userId) {
+      if (auth.currentUser && userId) {
         try {
           await setDoc(doc(db, 'users', userId, 'members', newId), sanitizeForFirestore(newMember));
           useAuditStore.getState().addLog({
@@ -604,6 +636,16 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       } else {
         try {
           await setDoc(doc(db, 'public_volunteers', newId), sanitizeForFirestore(newMember));
+          useAuditStore.getState().addLog({
+            action: 'Created',
+            category: 'Volunteers',
+            entity: 'Volunteer Applicant',
+            entityId: newId,
+            details: `New public volunteer application: ${newMember.firstName} ${newMember.lastName} (${newMember.department})`,
+            performedBy: `${newMember.firstName} ${newMember.lastName}`,
+            performedByEmail: newMember.email || 'applicant@dakseba.org',
+            performedByRole: 'Public Applicant'
+          });
         } catch (e: any) {
           recordQuotaExhausted(e);
         }
