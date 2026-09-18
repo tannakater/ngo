@@ -243,16 +243,17 @@ let supabaseOrgChannel: any = null;
 let localPrivateMembers: Member[] = [];
 let localPublicMembers: Member[] = [];
 
-function mapSupabaseMember(row: any): Member {
+function mapSupabaseMember(row: any, defaultStatus?: 'Active' | 'Pending'): Member {
+  const isApplicant = row.designation?.toLowerCase().includes('applicant') || row.member_id === 'PENDING-VOLUNTEER' || defaultStatus === 'Pending';
   return {
     id: row.id,
-    memberId: row.member_id || row.memberId || 'DAK-261001',
+    memberId: row.member_id || row.memberId || (isApplicant ? 'PENDING-VOLUNTEER' : 'DAK-261001'),
     firstName: row.first_name || row.firstName || '',
     lastName: row.last_name || row.lastName || '',
     email: row.email || '',
     phone: row.phone || '',
     role: row.role || 'Volunteer',
-    designation: row.designation || '',
+    designation: row.designation || (isApplicant ? 'Volunteer Applicant' : ''),
     department: row.department || '',
     bloodGroup: row.blood_group || row.bloodGroup || '',
     dateOfBirth: row.date_of_birth || row.dateOfBirth || '',
@@ -260,7 +261,7 @@ function mapSupabaseMember(row: any): Member {
     address: row.address || '',
     photoUrl: row.photo_url || row.photoUrl || '',
     emergencyContact: row.emergency_contact || row.emergencyContact || '',
-    status: row.status || 'Active',
+    status: row.status || (isApplicant ? 'Pending' : (defaultStatus || 'Active')),
     customFields: row.custom_fields || row.customFields || {},
     idCardGenerated: row.id_card_generated ?? row.idCardGenerated,
     needsRegeneration: row.needs_regeneration ?? row.needsRegeneration
@@ -273,7 +274,7 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
   // 1. Fetch public volunteer applications
   Promise.resolve(supabase.from('public_volunteers').select('*')).then(({ data, error }) => {
     if (!error && Array.isArray(data)) {
-      localPublicMembers = data.map(mapSupabaseMember);
+      localPublicMembers = data.map(row => mapSupabaseMember(row, 'Pending'));
       mergeAndSetMembers(set, get);
     }
   }).catch(err => console.warn('Supabase fetch public_volunteers error:', err));
@@ -281,7 +282,7 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
   // 2. Fetch active members
   Promise.resolve(supabase.from('members').select('*')).then(({ data, error }) => {
     if (!error && Array.isArray(data)) {
-      localPrivateMembers = data.map(mapSupabaseMember);
+      localPrivateMembers = data.map(row => mapSupabaseMember(row, 'Active'));
       mergeAndSetMembers(set, get);
     }
   }).catch(err => console.warn('Supabase fetch members error:', err));
@@ -293,26 +294,42 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
         .channel('public:org_members_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'public_volunteers' }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const mem = mapSupabaseMember(payload.new);
+            const mem = mapSupabaseMember(payload.new, 'Pending');
+            if (isIdDeleted(mem.id)) return;
             const idx = localPublicMembers.findIndex(m => m.id === mem.id);
             if (idx >= 0) localPublicMembers[idx] = mem;
             else localPublicMembers.unshift(mem);
             mergeAndSetMembers(set, get);
           } else if (payload.eventType === 'DELETE' && payload.old) {
-            localPublicMembers = localPublicMembers.filter(m => m.id !== payload.old.id);
-            mergeAndSetMembers(set, get);
+            const deletedId = payload.old.id;
+            if (deletedId) {
+              markIdDeleted(deletedId);
+              localPublicMembers = localPublicMembers.filter(m => m.id !== deletedId);
+              localPrivateMembers = localPrivateMembers.filter(m => m.id !== deletedId);
+              const updated = (get().members || []).filter(m => m.id !== deletedId);
+              set({ members: updated });
+              saveStoredOrgData({ members: updated });
+            }
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const mem = mapSupabaseMember(payload.new);
+            const mem = mapSupabaseMember(payload.new, 'Active');
+            if (isIdDeleted(mem.id)) return;
             const idx = localPrivateMembers.findIndex(m => m.id === mem.id);
             if (idx >= 0) localPrivateMembers[idx] = mem;
             else localPrivateMembers.unshift(mem);
             mergeAndSetMembers(set, get);
           } else if (payload.eventType === 'DELETE' && payload.old) {
-            localPrivateMembers = localPrivateMembers.filter(m => m.id !== payload.old.id);
-            mergeAndSetMembers(set, get);
+            const deletedId = payload.old.id;
+            if (deletedId) {
+              markIdDeleted(deletedId);
+              localPublicMembers = localPublicMembers.filter(m => m.id !== deletedId);
+              localPrivateMembers = localPrivateMembers.filter(m => m.id !== deletedId);
+              const updated = (get().members || []).filter(m => m.id !== deletedId);
+              set({ members: updated });
+              saveStoredOrgData({ members: updated });
+            }
           }
         })
         .subscribe();
@@ -325,38 +342,44 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
 const mergeAndSetMembers = (set: any, get: () => OrgState) => {
   const currentMembers = get().members || [];
   const memberMap = new Map<string, Member>();
+  const hasRemoteData = localPublicMembers.length > 0 || localPrivateMembers.length > 0;
 
-  // 1. Maintain all currently active members in memory, strictly excluding any deleted tombstones
-  currentMembers.forEach(m => {
-    if (m && m.id && !isIdDeleted(m.id)) {
+  if (hasRemoteData) {
+    // 1. Remote public volunteers (strictly excluding any deleted records)
+    localPublicMembers.forEach(m => {
+      if (!m || !m.id || isIdDeleted(m.id)) return;
       memberMap.set(m.id, m);
-    }
-  });
-
-  // 2. Overlay remote public volunteers safely
-  localPublicMembers.forEach(m => {
-    if (!m || !m.id || isIdDeleted(m.id)) return;
-    const existing = memberMap.get(m.id);
-    memberMap.set(m.id, {
-      ...existing,
-      ...m,
-      // If previous version had photo and remote omitted it, safeguard the photo
-      photoUrl: m.photoUrl || existing?.photoUrl || ''
     });
-  });
 
-  // 3. Overlay remote private members safely
-  localPrivateMembers.forEach(m => {
-    if (!m || !m.id || isIdDeleted(m.id)) return;
-    const existing = memberMap.get(m.id);
-    memberMap.set(m.id, {
-      ...existing,
-      ...m,
-      photoUrl: m.photoUrl || existing?.photoUrl || ''
+    // 2. Remote private members (strictly excluding any deleted records)
+    localPrivateMembers.forEach(m => {
+      if (!m || !m.id || isIdDeleted(m.id)) return;
+      const existing = memberMap.get(m.id);
+      memberMap.set(m.id, {
+        ...existing,
+        ...m,
+        photoUrl: m.photoUrl || existing?.photoUrl || ''
+      });
     });
-  });
 
-  const merged = Array.from(memberMap.values()).filter(m => !isIdDeleted(m.id));
+    // 3. Retain un-synced local seed members if they haven't been deleted
+    currentMembers.forEach(m => {
+      if (m && m.id && !isIdDeleted(m.id)) {
+        if (!memberMap.has(m.id) && m.id.startsWith('mem-') && !isIdDeleted(m.id)) {
+          memberMap.set(m.id, m);
+        }
+      }
+    });
+  } else {
+    // No remote data yet: use local active members excluding deleted tombstones
+    currentMembers.forEach(m => {
+      if (m && m.id && !isIdDeleted(m.id)) {
+        memberMap.set(m.id, m);
+      }
+    });
+  }
+
+  const merged = Array.from(memberMap.values()).filter(m => m && m.id && !isIdDeleted(m.id));
   set({ members: merged });
   saveStoredOrgData({ members: merged });
 };
@@ -602,9 +625,16 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       const membersRef = collection(db, 'users', workspaceId, 'members');
       
       unsubMembers = onSnapshot(membersRef, (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            markIdDeleted(change.doc.id);
+          }
+        });
         const fetchedMembers: Member[] = [];
         snapshot.forEach(doc => {
-          fetchedMembers.push({ ...doc.data(), id: doc.id } as Member);
+          if (!isIdDeleted(doc.id)) {
+            fetchedMembers.push({ ...doc.data(), id: doc.id } as Member);
+          }
         });
         localPrivateMembers = fetchedMembers;
         mergeAndSetMembers(set, get);
@@ -614,9 +644,16 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
       const publicVolunteersRef = collection(db, 'public_volunteers');
       unsubPublicVolunteers = onSnapshot(publicVolunteersRef, (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') {
+            markIdDeleted(change.doc.id);
+          }
+        });
         const fetchedPublic: Member[] = [];
         snapshot.forEach(doc => {
-          fetchedPublic.push({ ...doc.data(), id: doc.id } as Member);
+          if (!isIdDeleted(doc.id)) {
+            fetchedPublic.push({ ...doc.data(), id: doc.id } as Member);
+          }
         });
         localPublicMembers = fetchedPublic;
         mergeAndSetMembers(set, get);
@@ -738,30 +775,68 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   updateMember: async (id, memberUpdate) => {
     const { userId, members } = get();
-    const newMembers = members.map(m => m.id === id ? { ...m, ...memberUpdate } : m);
+    const newMembers = members.map(m => {
+      if (m.id === id) {
+        let assignedId = m.memberId;
+        // When accepting a pending applicant into Active status, ensure a valid sequential DAK-ID is assigned
+        if (memberUpdate.status === 'Active' && (!assignedId || assignedId.startsWith('PENDING') || assignedId === 'ID-PENDING')) {
+          assignedId = getNextSequentialMemberId(members);
+        }
+        let updatedDesignation = memberUpdate.designation !== undefined ? memberUpdate.designation : m.designation;
+        if (memberUpdate.status === 'Active' && (updatedDesignation === 'Volunteer Applicant' || !updatedDesignation)) {
+          updatedDesignation = 'Active Volunteer';
+        }
+        return { 
+          ...m, 
+          ...memberUpdate, 
+          memberId: assignedId,
+          designation: updatedDesignation
+        };
+      }
+      return m;
+    });
     set({ members: newMembers });
     saveStoredOrgData({ members: newMembers });
+
+    const memberToUpdate = newMembers.find(m => m.id === id);
+
+    // Supabase dual-sync for updates
+    if (supabase && memberToUpdate) {
+      const payload = {
+        member_id: memberToUpdate.memberId,
+        first_name: memberToUpdate.firstName,
+        last_name: memberToUpdate.lastName,
+        email: memberToUpdate.email || null,
+        phone: memberToUpdate.phone || null,
+        role: memberToUpdate.role || 'Volunteer',
+        designation: memberToUpdate.designation || '',
+        department: memberToUpdate.department || '',
+        blood_group: memberToUpdate.bloodGroup || '',
+        status: memberToUpdate.status || 'Active'
+      };
+      Promise.resolve(supabase.from('public_volunteers').update(payload).eq('id', id)).catch(() => {});
+      if (memberToUpdate.status === 'Active') {
+        Promise.resolve(supabase.from('members').upsert([{ id, ...payload }])).catch(() => {});
+      }
+    }
     
-    if (userId && !isQuotaExhausted()) {
+    if (userId && !isQuotaExhausted() && memberToUpdate) {
       try {
-        const memberToUpdate = newMembers.find(m => m.id === id);
-        if (memberToUpdate) {
-          try {
-            await updateDoc(doc(db, 'users', userId, 'members', id), sanitizeForFirestore(memberToUpdate as any));
-          } catch (e: any) {
-            if (e.code === 'not-found') {
-              await updateDoc(doc(db, 'public_volunteers', id), sanitizeForFirestore(memberToUpdate as any));
-            } else {
-              throw e;
-            }
+        try {
+          await updateDoc(doc(db, 'users', userId, 'members', id), sanitizeForFirestore(memberToUpdate as any));
+        } catch (e: any) {
+          if (e.code === 'not-found') {
+            await updateDoc(doc(db, 'public_volunteers', id), sanitizeForFirestore(memberToUpdate as any));
+          } else {
+            throw e;
           }
-          useAuditStore.getState().addLog({
-            action: 'Updated',
-            entity: 'Member',
-            entityId: id,
-            details: `Updated details for ${memberToUpdate.firstName} ${memberToUpdate.lastName}`
-          });
         }
+        useAuditStore.getState().addLog({
+          action: 'Updated',
+          entity: 'Member',
+          entityId: id,
+          details: `Updated details for ${memberToUpdate.firstName} ${memberToUpdate.lastName} (Status: ${memberToUpdate.status})`
+        });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -770,11 +845,18 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
   deleteMember: async (id) => {
     markIdDeleted(id);
+    localPublicMembers = localPublicMembers.filter(m => m.id !== id);
+    localPrivateMembers = localPrivateMembers.filter(m => m.id !== id);
     const { userId, members } = get();
     const oldMember = members.find(m => m.id === id);
     const updatedMembers = members.filter(m => m.id !== id);
     set({ members: updatedMembers });
     saveStoredOrgData({ members: updatedMembers });
+
+    if (supabase) {
+      Promise.resolve(supabase.from('public_volunteers').delete().eq('id', id)).catch(() => {});
+      Promise.resolve(supabase.from('members').delete().eq('id', id)).catch(() => {});
+    }
 
     if (userId && !isQuotaExhausted()) {
       try {
@@ -1003,8 +1085,28 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   }
 }));
 
-// Auto-sync with Supabase on module load
+// Auto-sync with Supabase on module load & register cross-admin deletion listener
 if (typeof window !== 'undefined') {
+  const handleOrgRecordDeleted = (e: any) => {
+    const idsToPurge = new Set<string>((e?.detail?.ids || []).map((id: string) => String(id).trim()));
+    if (idsToPurge.size === 0) return;
+
+    localPublicMembers = localPublicMembers.filter(m => m && m.id && !idsToPurge.has(m.id.trim()));
+    localPrivateMembers = localPrivateMembers.filter(m => m && m.id && !idsToPurge.has(m.id.trim()));
+
+    const store = useOrgStore.getState();
+    const current = store.members || [];
+    const filtered = current.filter(m => m && m.id && !idsToPurge.has(m.id.trim()) && !isIdDeleted(m.id));
+
+    if (filtered.length !== current.length) {
+      useOrgStore.setState({ members: filtered });
+      saveStoredOrgData({ members: filtered });
+    }
+  };
+
+  window.addEventListener('daksheba-record-deleted', handleOrgRecordDeleted as EventListener);
+  window.addEventListener('ngo-record-deleted', handleOrgRecordDeleted as EventListener);
+
   setTimeout(() => {
     syncWithSupabase(useOrgStore.setState, useOrgStore.getState);
   }, 50);

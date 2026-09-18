@@ -1,11 +1,11 @@
 import { getOptimizeImageUrl } from "../lib/utils";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useOrgStore, Member } from '../store/useOrgStore';
 import { 
-  Search, Plus, Filter, Download, IdCard, Trash2, 
-  UserCheck, Shield, CheckCircle2, MoreVertical, Edit3,
-  Eye, RefreshCw, AlertCircle, Printer
+  Search, Plus, Download, IdCard, Trash2, 
+  Users, CheckCircle2, Edit3, HeartHandshake,
+  RefreshCw, AlertCircle, Printer, Clock, Check
 } from 'lucide-react';
 import { cn } from '../utils';
 import { AddMemberPanel } from '../components/AddMemberPanel';
@@ -19,40 +19,63 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
   const isMasterAdmin = adminUser?.role === 'admin';
   const [searchTerm, setSearchTerm] = useState('');
   
-  const [roleFilter, setRoleFilter] = useState(initialTab === 'volunteers' ? 'Volunteer' : 'All');
-  const [statusFilter, setStatusFilter] = useState(initialTab === 'volunteers' ? 'Pending' : 'All');
+  // High level directory tabs: 'active' | 'volunteers' | 'all'
+  const [directoryTab, setDirectoryTab] = useState<'active' | 'volunteers' | 'all'>(
+    initialTab === 'volunteers' ? 'volunteers' : 'active'
+  );
+
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [idStatusFilter, setIdStatusFilter] = useState<'All' | 'Issued' | 'NeedsRegen' | 'NotIssued'>('All');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
   const [quickGenMemberId, setQuickGenMemberId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; name: string }>({
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; name: string; isReject?: boolean }>({
     isOpen: false,
     id: '',
-    name: ''
+    name: '',
+    isReject: false
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialTab === 'volunteers') {
-      setRoleFilter('Volunteer');
-      setStatusFilter('Pending');
+      setDirectoryTab('volunteers');
     } else {
-      setRoleFilter('All');
-      setStatusFilter('All');
+      setDirectoryTab('active');
     }
   }, [initialTab]);
 
-  const totalIssued = members.filter(m => m.idCardGenerated && !m.needsRegeneration).length;
-  const totalNeedsRegen = members.filter(m => m.idCardGenerated && m.needsRegeneration).length;
-  const totalNotIssued = members.filter(m => !m.idCardGenerated).length;
+  const activeMembersList = members.filter(m => m.status === 'Active');
+  const pendingVolunteersList = members.filter(m => 
+    m.status === 'Pending' || 
+    Boolean(m.designation?.toLowerCase().includes('applicant'))
+  );
+
+  const totalIssued = activeMembersList.filter(m => m.idCardGenerated && !m.needsRegeneration).length;
+  const totalNeedsRegen = activeMembersList.filter(m => m.idCardGenerated && m.needsRegeneration).length;
+  const totalNotIssued = activeMembersList.filter(m => !m.idCardGenerated).length;
 
   const filteredMembers = members.filter(member => {
+    // 1. Directory Tab Filter
+    if (directoryTab === 'active') {
+      if (member.status !== 'Active') return false;
+    } else if (directoryTab === 'volunteers') {
+      if (member.status !== 'Pending' && !member.designation?.toLowerCase().includes('applicant')) {
+        return false;
+      }
+    }
+
+    // 2. Search
     const matchesSearch = 
       member.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       member.memberId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (member.department && member.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (member.designation && member.designation.toLowerCase().includes(searchTerm.toLowerCase()));
+      (member.designation && member.designation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (member.email && member.email.toLowerCase().includes(searchTerm.toLowerCase()));
     
+    // 3. Dropdown Filters
     const matchesRole = roleFilter === 'All' || member.role === roleFilter;
     const matchesStatus = statusFilter === 'All' || member.status === statusFilter;
 
@@ -67,6 +90,15 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
 
     return matchesSearch && matchesRole && matchesStatus && matchesIdStatus;
   });
+
+  const handleAcceptVolunteer = async (member: Member) => {
+    await updateMember(member.id, {
+      status: 'Active',
+      designation: 'Active Volunteer'
+    });
+    setActionSuccessMessage(`${member.firstName} ${member.lastName} has been accepted and activated! Member ID assigned.`);
+    setTimeout(() => setActionSuccessMessage(null), 4000);
+  };
 
   const exportCSV = () => {
     const headers = ['Member ID', 'First Name', 'Last Name', 'Role', 'Designation', 'Department', 'Email', 'Phone', 'Status', 'Blood Group'];
@@ -115,36 +147,45 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
       />
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
-        title="Remove Member"
-        message={`Are you sure you want to remove member ${deleteConfirm.name}? All associated records will be removed.`}
-        confirmText="Remove Member"
+        title={deleteConfirm.isReject ? "Reject Volunteer Application" : "Remove Member"}
+        message={deleteConfirm.isReject 
+          ? `Are you sure you want to reject and remove the volunteer application for ${deleteConfirm.name}?`
+          : `Are you sure you want to remove member ${deleteConfirm.name}? All associated records will be removed.`}
+        confirmText={deleteConfirm.isReject ? "Reject Application" : "Remove Member"}
         onConfirm={() => deleteMember(deleteConfirm.id)}
-        onClose={() => setDeleteConfirm({ isOpen: false, id: '', name: '' })}
+        onClose={() => setDeleteConfirm({ isOpen: false, id: '', name: '', isReject: false })}
       />
       
+      {/* Page Title & Top Actions */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Members & Volunteer Directory</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {directoryTab === 'volunteers' ? 'Volunteer Applications & Requests' : 'Members & Staff Directory'}
+          </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Official roster of staff, registered volunteers, and field members for ID credential issuance.
+            {directoryTab === 'volunteers' 
+              ? 'Review pending volunteer submissions. Without acceptance, applicants do not appear in the active member directory or public team section.'
+              : 'Official roster of verified staff, active volunteers, and field members for ID credential issuance.'}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:flex-none flex flex-wrap items-center gap-2.5">
-          <div className="hidden lg:flex items-center gap-2 border-r border-slate-200 pr-3 mr-1 text-xs">
-            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              {totalIssued} Issued
-            </span>
-            {totalNeedsRegen > 0 && (
-              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg font-bold animate-pulse">
-                <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
-                {totalNeedsRegen} Re-gen Available
+          {directoryTab !== 'volunteers' && (
+            <div className="hidden lg:flex items-center gap-2 border-r border-slate-200 pr-3 mr-1 text-xs">
+              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                {totalIssued} Issued
               </span>
-            )}
-            <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-lg font-medium">
-              {totalNotIssued} Not Issued
-            </span>
-          </div>
+              {totalNeedsRegen > 0 && (
+                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg font-bold animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+                  {totalNeedsRegen} Re-gen Available
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-lg font-medium">
+                {totalNotIssued} Not Issued
+              </span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -154,6 +195,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
             <Download className="-ml-0.5 mr-1.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             Export CSV
           </button>
+
           {isMasterAdmin && (
             <Link
               to="/admin/id-cards/print"
@@ -164,6 +206,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
               Batch Print PDF
             </Link>
           )}
+
           <button
             type="button"
             onClick={() => {
@@ -178,6 +221,107 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
         </div>
       </div>
 
+      {/* Action Success Alert */}
+      {actionSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-xs font-semibold shadow-xs animate-in fade-in slide-in-from-top-2">
+          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{actionSuccessMessage}</span>
+        </div>
+      )}
+
+      {/* Directory Tab Selector */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setDirectoryTab('active');
+              setStatusFilter('All');
+            }}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+              directoryTab === 'active'
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Active Members & Staff</span>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.2 rounded-full">
+              {activeMembersList.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDirectoryTab('volunteers');
+              setStatusFilter('All');
+            }}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all relative",
+              directoryTab === 'volunteers'
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <HeartHandshake className="w-3.5 h-3.5 text-amber-600" />
+            <span>Volunteer Requests</span>
+            {pendingVolunteersList.length > 0 && (
+              <span className="bg-amber-500 text-white font-bold text-[10px] px-1.5 py-0.2 rounded-full animate-pulse">
+                {pendingVolunteersList.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDirectoryTab('all');
+              setStatusFilter('All');
+            }}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+              directoryTab === 'all'
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <span>All Records</span>
+            <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded-full">
+              {members.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Notification Banner when pending applications exist */}
+      {pendingVolunteersList.length > 0 && directoryTab === 'active' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-900">
+                {pendingVolunteersList.length} Volunteer Application{pendingVolunteersList.length > 1 ? 's' : ''} Awaiting Review
+              </div>
+              <div className="text-[11px] text-amber-700">
+                Pending applicants do not appear in this active directory or the public volunteer team showcase until accepted.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDirectoryTab('volunteers')}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-xs self-start sm:self-auto cursor-pointer"
+          >
+            Review Applications →
+          </button>
+        </div>
+      )}
+
+      {/* Main Table Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Filter bar */}
         <div className="border-b border-slate-200 p-4 sm:flex sm:items-center sm:justify-between bg-slate-50 gap-4">
@@ -197,19 +341,21 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
           </div>
 
           <div className="mt-3 sm:mt-0 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">ID Status:</span>
-              <select
-                value={idStatusFilter}
-                onChange={e => setIdStatusFilter(e.target.value as any)}
-                className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
-              >
-                <option value="All">All Cards</option>
-                <option value="Issued">Issued & Valid ({totalIssued})</option>
-                <option value="NeedsRegen">Needs Re-gen ({totalNeedsRegen})</option>
-                <option value="NotIssued">Not Issued ({totalNotIssued})</option>
-              </select>
-            </div>
+            {directoryTab !== 'volunteers' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">ID Status:</span>
+                <select
+                  value={idStatusFilter}
+                  onChange={e => setIdStatusFilter(e.target.value as any)}
+                  className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
+                >
+                  <option value="All">All Cards</option>
+                  <option value="Issued">Issued & Valid ({totalIssued})</option>
+                  <option value="NeedsRegen">Needs Re-gen ({totalNeedsRegen})</option>
+                  <option value="NotIssued">Not Issued ({totalNotIssued})</option>
+                </select>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Role:</span>
@@ -226,22 +372,24 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              >
-                <option value="All">All Statuses</option>
-                <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
+            {directoryTab === 'all' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            )}
 
             <span className="text-xs font-medium text-slate-500 bg-slate-200/60 px-2.5 py-1 rounded-md">
-              {filteredMembers.length} {filteredMembers.length === 1 ? 'member' : 'members'}
+              {filteredMembers.length} {filteredMembers.length === 1 ? 'record' : 'records'}
             </span>
           </div>
         </div>
@@ -252,7 +400,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
             <thead className="bg-slate-50 sticky top-0 z-10 text-slate-500 uppercase font-bold tracking-wider text-[11px]">
               <tr>
                 <th scope="col" className="py-3 pl-4 pr-2 text-left">
-                  Member
+                  {directoryTab === 'volunteers' ? 'Applicant' : 'Member'}
                 </th>
                 <th scope="col" className="px-2.5 py-3 text-left">
                   Official ID #
@@ -263,7 +411,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                 <th scope="col" className="px-2 py-3 text-left">
                   Status
                 </th>
-                {isMasterAdmin && (
+                {isMasterAdmin && directoryTab !== 'volunteers' && (
                   <th scope="col" className="px-2.5 py-3 text-left">
                     ID Card Credential
                   </th>
@@ -287,19 +435,24 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                       </div>
                       <div className="min-w-0 max-w-[170px] sm:max-w-[200px]">
                         <div className="font-bold text-slate-900 truncate">{member.firstName} {member.lastName}</div>
-                        <div className="text-slate-500 text-[11px] font-mono truncate">{member.email}</div>
+                        <div className="text-slate-500 text-[11px] font-mono truncate">{member.email || member.phone || 'No contact info'}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-2.5 py-3 whitespace-nowrap">
-                    <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-800 font-bold text-[11px]">
+                    <span className={cn(
+                      "font-mono px-2 py-0.5 rounded font-bold text-[11px]",
+                      member.memberId?.startsWith('PENDING')
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-slate-100 text-slate-800"
+                    )}>
                       {member.memberId}
                     </span>
                   </td>
                   <td className="px-2.5 py-3">
-                    <div className="font-bold text-emerald-700 text-xs leading-tight">{member.role || 'Member'}</div>
-                    <div className="text-slate-800 font-medium text-[11px] truncate max-w-[140px]">{member.designation}</div>
-                    <div className="text-slate-400 text-[10px] truncate max-w-[140px]">{member.department}</div>
+                    <div className="font-bold text-emerald-700 text-xs leading-tight">{member.role || 'Volunteer'}</div>
+                    <div className="text-slate-800 font-medium text-[11px] truncate max-w-[140px]">{member.designation || 'Volunteer'}</div>
+                    <div className="text-slate-400 text-[10px] truncate max-w-[140px]">{member.department || 'General Support'}</div>
                   </td>
                   <td className="px-2 py-3 whitespace-nowrap">
                     <span className={cn(
@@ -309,9 +462,13 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                       {member.status}
                     </span>
                   </td>
-                  {isMasterAdmin && (
+                  {isMasterAdmin && directoryTab !== 'volunteers' && (
                     <td className="px-2.5 py-3 whitespace-nowrap">
-                      {member.idCardGenerated && !member.needsRegeneration ? (
+                      {member.status === 'Pending' ? (
+                        <span className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                          Awaiting Approval
+                        </span>
+                      ) : member.idCardGenerated && !member.needsRegeneration ? (
                         <div className="flex flex-col">
                           <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold w-fit">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" /> Issued
@@ -344,18 +501,18 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                         <>
                           <button
                             type="button"
-                            className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center py-1.5 px-2.5 rounded-lg transition-colors border border-emerald-200 text-xs font-bold gap-1 shadow-xs cursor-pointer"
-                            title="Accept Volunteer Request"
-                            onClick={() => updateMember(member.id, { status: 'Active' })}
+                            className="text-white bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center py-1.5 px-3 rounded-lg transition-colors text-xs font-bold gap-1 shadow-sm cursor-pointer"
+                            title="Accept Volunteer Request and Activate as Official Member"
+                            onClick={() => handleAcceptVolunteer(member)}
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Accept</span>
+                            <span>Accept & Activate</span>
                           </button>
                           <button
                             type="button"
                             className="text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 flex items-center justify-center py-1.5 px-2.5 rounded-lg transition-colors border border-rose-200 text-xs font-bold gap-1 shadow-xs cursor-pointer"
                             title="Reject Volunteer Request"
-                            onClick={() => setDeleteConfirm({ isOpen: true, id: member.id, name: member.firstName })}
+                            onClick={() => setDeleteConfirm({ isOpen: true, id: member.id, name: `${member.firstName} ${member.lastName}`, isReject: true })}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                             <span>Reject</span>
@@ -363,7 +520,7 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                         </>
                       ) : (
                         <>
-                          {/* Contextual ID Action */}
+                          {/* Contextual ID Action for Active members */}
                           {isMasterAdmin && (
                             <>
                               {member.idCardGenerated && !member.needsRegeneration ? (
@@ -418,7 +575,8 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
                               setDeleteConfirm({
                                 isOpen: true,
                                 id: member.id,
-                                name: `${member.firstName} ${member.lastName}`
+                                name: `${member.firstName} ${member.lastName}`,
+                                isReject: false
                               });
                             }}
                             className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
@@ -435,7 +593,9 @@ export function Members({ initialTab = 'all' }: { initialTab?: string }) {
               {filteredMembers.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-xs text-slate-400">
-                    No members found matching your search.
+                    {directoryTab === 'volunteers' 
+                      ? 'No pending volunteer requests found.'
+                      : 'No active members found matching your search.'}
                   </td>
                 </tr>
               )}

@@ -194,9 +194,9 @@ export function VolunteerTeamSection({ showTitle = true, maxDisplay }: Volunteer
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Active members for display
+  // Active members for display - STRICTLY show ONLY approved & active members (never pending requests)
   const activeMembers = useMemo(() => {
-    const list = displaySource.filter(m => m.status !== 'Inactive');
+    const list = displaySource.filter(m => m.status === 'Active');
     return maxDisplay && maxDisplay > 0 ? list.slice(0, maxDisplay) : list;
   }, [displaySource, maxDisplay]);
 

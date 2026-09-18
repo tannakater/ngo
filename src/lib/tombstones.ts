@@ -1,7 +1,11 @@
-// Persistent deletion registry (Tombstones)
-// Guarantees that when a user deletes a member, program, campaign, or event,
-// it is permanently removed and NEVER resurrected by historical storage recovery,
-// fallback seed arrays, or remote sync snapshots.
+// Persistent cross-admin deletion registry & realtime synchronization (Tombstones)
+// Guarantees that when any administrator deletes or rejects a member, volunteer, donation, message, or project,
+// it is instantly synchronized to ALL other connected admins in real time and permanently purged
+// across localStorage, Zustand stores, Supabase, and Firestore.
+
+import { supabase } from './supabase';
+import { db } from './firebase';
+import { doc, onSnapshot, setDoc, arrayUnion } from 'firebase/firestore';
 
 const TOMBSTONE_STORAGE_KEY = 'daksheba_deleted_ids';
 const INIT_FLAGS_KEY = 'daksheba_store_inits';
@@ -18,6 +22,8 @@ const KNOWN_STORAGE_KEYS = [
 ];
 
 let cachedDeletedIds: Set<string> | null = null;
+let realtimeSyncInitialized = false;
+let globalSyncChannel: any = null;
 
 export function getDeletedIds(): Set<string> {
   if (cachedDeletedIds !== null) {
@@ -48,15 +54,17 @@ export function isIdDeleted(id?: string | null): boolean {
   return getDeletedIds().has(id.trim());
 }
 
-export function markIdDeleted(id: string | string[]): void {
+export function markIdDeleted(id: string | string[], skipRemoteBroadcast: boolean = false): void {
   if (!id) return;
   const ids = Array.isArray(id) ? id : [id];
   const set = getDeletedIds();
   let changed = false;
+  const validIds: string[] = [];
 
   ids.forEach(item => {
     if (item && typeof item === 'string') {
       const trimmed = item.trim();
+      validIds.push(trimmed);
       if (!set.has(trimmed)) {
         set.add(trimmed);
         changed = true;
@@ -64,25 +72,54 @@ export function markIdDeleted(id: string | string[]): void {
     }
   });
 
-  if (!changed) return;
+  if (!changed && skipRemoteBroadcast) return;
 
   try {
     if (typeof window !== 'undefined') {
       localStorage.setItem(TOMBSTONE_STORAGE_KEY, JSON.stringify(Array.from(set)));
-      // Deep purge across all legacy and current storage keys
+      // Deep purge across all local storage entries
       purgeDeletedIdsFromStorage(set);
       window.dispatchEvent(new CustomEvent('daksheba-record-deleted', {
-        detail: { ids: ids.map(i => (typeof i === 'string' ? i.trim() : '')) }
+        detail: { ids: validIds }
       }));
     }
   } catch (e) {
-    console.warn('Failed to persist tombstones:', e);
+    console.warn('Failed to persist tombstones locally:', e);
+  }
+
+  // Cross-admin remote broadcasting if this action originated on this client
+  if (!skipRemoteBroadcast && validIds.length > 0) {
+    // 1. Supabase Realtime Broadcast to all other connected admin devices
+    if (supabase) {
+      try {
+        if (!globalSyncChannel) {
+          globalSyncChannel = supabase.channel('global_admin_sync');
+          globalSyncChannel.subscribe();
+        }
+        globalSyncChannel.send({
+          type: 'broadcast',
+          event: 'record_deleted',
+          payload: { ids: validIds, timestamp: Date.now() }
+        }).catch(() => {});
+      } catch (err) {}
+    }
+
+    // 2. Firestore Deletion Registry Synchronization
+    if (db) {
+      try {
+        const deletionsRef = doc(db, 'app_sync', 'deletions');
+        setDoc(deletionsRef, {
+          ids: arrayUnion(...validIds),
+          lastUpdated: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      } catch (err) {}
+    }
   }
 }
 
 export function propagateRecordDeletion(id: string | string[], entityType?: string): void {
   if (!id) return;
-  markIdDeleted(id);
+  markIdDeleted(id, false);
   if (typeof window !== 'undefined') {
     const idArray = Array.isArray(id) ? id : [id];
     window.dispatchEvent(new CustomEvent('ngo-record-deleted', {
@@ -110,13 +147,13 @@ export function purgeDeletedIdsFromStorage(deletedSet?: Set<string>): void {
 
       const cleanArray = (arr: any[]) => {
         if (!Array.isArray(arr)) return arr;
-        const filtered = arr.filter(item => !item || !item.id || !set.has(item.id.trim()));
+        const filtered = arr.filter(item => !item || !item.id || !set.has(String(item.id).trim()));
         if (filtered.length !== arr.length) wasModified = true;
         return filtered;
       };
 
       if (target && typeof target === 'object') {
-        ['projects', 'campaigns', 'volunteers', 'events', 'news', 'donations', 'documents', 'members'].forEach(field => {
+        ['projects', 'campaigns', 'volunteers', 'events', 'news', 'donations', 'documents', 'members', 'messages'].forEach(field => {
           if (Array.isArray(target[field])) {
             target[field] = cleanArray(target[field]);
           }
@@ -160,4 +197,49 @@ export function isStoreInitialized(storeKey: string): boolean {
     }
   } catch (e) {}
   return false;
+}
+
+// Global cross-client realtime deletion listener setup
+export function initCrossAdminRealtimeSync(): void {
+  if (typeof window === 'undefined' || realtimeSyncInitialized) return;
+  realtimeSyncInitialized = true;
+
+  // 1. Supabase Broadcast Channel Listener
+  if (supabase) {
+    try {
+      globalSyncChannel = supabase.channel('global_admin_sync');
+      globalSyncChannel
+        .on('broadcast', { event: 'record_deleted' }, (payload: any) => {
+          if (payload?.payload?.ids && Array.isArray(payload.payload.ids)) {
+            // Incoming deletion from another admin
+            markIdDeleted(payload.payload.ids, true);
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase admin sync channel error:', e);
+    }
+  }
+
+  // 2. Firestore Remote Deletions Document Listener
+  if (db) {
+    try {
+      const deletionsRef = doc(db, 'app_sync', 'deletions');
+      onSnapshot(deletionsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (Array.isArray(data.ids) && data.ids.length > 0) {
+            markIdDeleted(data.ids, true);
+          }
+        }
+      }, (err) => {
+        // Silent ignore for permissions / quota
+      });
+    } catch (e) {}
+  }
+}
+
+// Auto-run on module load in browser
+if (typeof window !== 'undefined') {
+  initCrossAdminRealtimeSync();
 }

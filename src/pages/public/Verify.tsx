@@ -201,16 +201,20 @@ export function Verify() {
     cleanQuery.includes(d.receiptNumber.toLowerCase())
   );
 
-  const foundMember = (dbMember?._type === 'member' ? dbMember : null) || (!foundDonation ? members.find(m => 
-    (m.memberId && m.memberId.toLowerCase() === cleanQuery) || 
-    (m.id && m.id.toLowerCase() === cleanQuery) ||
-    (m.memberId && cleanQuery.includes(m.memberId.toLowerCase()))
+  const foundMember = (dbMember?._type === 'member' && dbMember?.status !== 'Pending' ? dbMember : null) || (!foundDonation ? members.find(m => 
+    m.status !== 'Pending' && (
+      (m.memberId && m.memberId !== 'PENDING-VOLUNTEER' && m.memberId.toLowerCase() === cleanQuery) || 
+      (m.id && m.id.toLowerCase() === cleanQuery) ||
+      (m.memberId && m.memberId !== 'PENDING-VOLUNTEER' && cleanQuery.includes(m.memberId.toLowerCase()))
+    )
   ) : null);
 
-  const foundVolunteer = (dbMember?._type === 'volunteer' ? dbMember : null) || ((!foundDonation && !foundMember) ? volunteers.find(v => 
-    (v.volunteerId && v.volunteerId.toLowerCase() === cleanQuery) || 
-    (v.id && v.id.toLowerCase() === cleanQuery) ||
-    (v.volunteerId && cleanQuery.includes(v.volunteerId.toLowerCase()))
+  const foundVolunteer = (dbMember?._type === 'volunteer' && dbMember?.status !== 'Pending' ? dbMember : null) || ((!foundDonation && !foundMember) ? volunteers.find(v => 
+    v.status !== 'Pending' && (
+      (v.volunteerId && v.volunteerId !== 'PENDING-VOLUNTEER' && v.volunteerId.toLowerCase() === cleanQuery) || 
+      (v.id && v.id.toLowerCase() === cleanQuery) ||
+      (v.volunteerId && v.volunteerId !== 'PENDING-VOLUNTEER' && cleanQuery.includes(v.volunteerId.toLowerCase()))
+    )
   ) : null);
 
   const isVerified = Boolean(foundDonation || foundMember || foundVolunteer);

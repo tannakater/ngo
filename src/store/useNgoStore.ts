@@ -1007,6 +1007,7 @@ const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const don = mapSupabaseDonation(payload.new);
+            if (isIdDeleted(don.id)) return;
             const current = get().donations;
             const idx = current.findIndex(d => d.id === don.id);
             let updated: Donation[];
@@ -1018,11 +1019,20 @@ const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
             }
             set({ donations: updated });
             saveStoredNgoData({ donations: updated });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const delId = payload.old.id;
+            if (delId) {
+              markIdDeleted(delId);
+              const updated = get().donations.filter(d => d.id !== delId);
+              set({ donations: updated });
+              saveStoredNgoData({ donations: updated });
+            }
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const msg = mapSupabaseMessage(payload.new);
+            if (isIdDeleted(msg.id)) return;
             const current = get().messages;
             const idx = current.findIndex(m => m.id === msg.id);
             let updated: ContactMessage[];
@@ -1034,6 +1044,14 @@ const syncNgoWithSupabase = (set: any, get: () => NgoState) => {
             }
             set({ messages: updated });
             saveStoredNgoData({ messages: updated });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const delId = payload.old.id;
+            if (delId) {
+              markIdDeleted(delId);
+              const updated = get().messages.filter(m => m.id !== delId);
+              set({ messages: updated });
+              saveStoredNgoData({ messages: updated });
+            }
           }
         })
         .subscribe();
@@ -1084,11 +1102,18 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       const colRef = collection(db, colName);
       try {
         const unsub = onSnapshot(colRef, (snapshot) => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') {
+              markIdDeleted(change.doc.id);
+            }
+          });
           const rawItems: any[] = [];
           snapshot.forEach(d => {
             const data = d.data();
             const id = d.id || data.id;
-            rawItems.push({ ...data, id });
+            if (!isIdDeleted(id)) {
+              rawItems.push({ ...data, id });
+            }
           });
 
           // Validate and filter against tombstones & schema before touching the store or UI
@@ -1444,6 +1469,11 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     set({ volunteers: updated });
     saveStoredNgoData({ volunteers: updated });
 
+    if (supabase) {
+      Promise.resolve(supabase.from('public_volunteers').delete().eq('id', id)).catch(() => {});
+      Promise.resolve(supabase.from('volunteers').delete().eq('id', id)).catch(() => {});
+    }
+
     useAuditStore.getState().addLog({
       action: 'Deleted',
       category: 'Volunteers',
@@ -1766,6 +1796,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     set({ donations: updated });
     saveStoredNgoData({ donations: updated });
 
+    if (supabase) {
+      Promise.resolve(supabase.from('donations').delete().eq('id', id)).catch(() => {});
+    }
+
     useAuditStore.getState().addLog({
       action: 'Deleted',
       category: 'Donations',
@@ -1842,6 +1876,11 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     const updated = get().messages.filter(m => m.id !== id && !isIdDeleted(m.id));
     set({ messages: updated });
     saveStoredNgoData({ messages: updated });
+
+    if (supabase) {
+      Promise.resolve(supabase.from('messages').delete().eq('id', id)).catch(() => {});
+    }
+
     if (!isQuotaExhausted()) {
       try {
         await deleteDoc(doc(db, 'messages', id));
