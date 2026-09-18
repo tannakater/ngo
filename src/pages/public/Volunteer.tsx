@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useOrgStore } from '../../store/useOrgStore';
-import { useNgoStore } from '../../store/useNgoStore';
 import { Heart, Loader2, CheckCircle } from 'lucide-react';
 
 export function Volunteer() {
   const { addMember } = useOrgStore();
-  const { addVolunteer } = useNgoStore();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -25,34 +23,24 @@ export function Volunteer() {
     setIsSubmitting(true);
     
     try {
-      await Promise.all([
-        addMember({
-          memberId: 'PENDING-VOLUNTEER',
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          department: formData.department,
-          address: formData.address,
-          photoUrl: formData.photoUrl,
-          role: 'Volunteer',
-          designation: 'Volunteer Applicant',
-          status: 'Pending',
-          bloodGroup: '',
-          dateOfBirth: '',
-          joiningDate: new Date().toISOString().split('T')[0],
-          emergencyContact: '',
-          customFields: {}
-        }),
-        addVolunteer({
-          volunteerId: 'PENDING-VOLUNTEER',
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-          email: formData.email,
-          phone: formData.phone,
-          department: formData.department,
-          status: 'Pending'
-        })
-      ]);
+      await addMember({
+        memberId: 'PENDING-VOLUNTEER',
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        department: formData.department || 'General Support',
+        address: formData.address.trim(),
+        photoUrl: formData.photoUrl,
+        role: 'Volunteer',
+        designation: 'Volunteer Applicant',
+        status: 'Pending',
+        bloodGroup: '',
+        dateOfBirth: '',
+        joiningDate: new Date().toISOString().split('T')[0],
+        emergencyContact: '',
+        customFields: {}
+      });
     } catch (err) {
       console.warn('Volunteer submission handled:', err);
     }

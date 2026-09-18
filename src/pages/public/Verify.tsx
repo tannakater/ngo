@@ -196,9 +196,9 @@ export function Verify() {
 
   // Map from local state or dbMember depending on what was found
   const foundDonation = (dbMember?._type === 'donation' ? dbMember : null) || donations.find(d => 
-    d.receiptNumber.toLowerCase() === cleanQuery || 
+    (d.receiptNumber && d.receiptNumber.toLowerCase() === cleanQuery) || 
     (d.transactionId && d.transactionId.toLowerCase() === cleanQuery) ||
-    cleanQuery.includes(d.receiptNumber.toLowerCase())
+    (d.receiptNumber && cleanQuery.includes(d.receiptNumber.toLowerCase()))
   );
 
   const foundMember = (dbMember?._type === 'member' && dbMember?.status !== 'Pending' ? dbMember : null) || (!foundDonation ? members.find(m => 

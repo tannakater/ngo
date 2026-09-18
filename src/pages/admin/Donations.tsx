@@ -90,10 +90,10 @@ export function AdminDonations() {
   const filteredDonations = donations.filter(d => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = 
-      d.donorName.toLowerCase().includes(term) ||
-      d.donorEmail.toLowerCase().includes(term) ||
-      d.receiptNumber.toLowerCase().includes(term) ||
-      (d.transactionId && d.transactionId.toLowerCase().includes(term));
+      (d.donorName || '').toLowerCase().includes(term) ||
+      (d.donorEmail || '').toLowerCase().includes(term) ||
+      (d.receiptNumber || '').toLowerCase().includes(term) ||
+      (d.transactionId ? d.transactionId.toLowerCase().includes(term) : false);
 
     const matchesStatus = statusTab === 'All' || d.status === statusTab;
     const matchesCampaign = campaignFilter === 'All' || d.campaignId === campaignFilter;

@@ -379,7 +379,29 @@ const mergeAndSetMembers = (set: any, get: () => OrgState) => {
     });
   }
 
-  const merged = Array.from(memberMap.values()).filter(m => m && m.id && !isIdDeleted(m.id));
+  const rawList = Array.from(memberMap.values()).filter(m => m && m.id && !isIdDeleted(m.id));
+  
+  // Deduplicate pending volunteer requests if duplicate records exist
+  const seenPendingSignatures = new Set<string>();
+  const merged: Member[] = [];
+  
+  rawList.forEach(m => {
+    if (m.status === 'Pending') {
+      const email = (m.email || '').toLowerCase().trim();
+      const phone = (m.phone || '').trim();
+      const name = `${(m.firstName || '').toLowerCase().trim()} ${(m.lastName || '').toLowerCase().trim()}`.trim();
+      
+      const sig = email || phone || name;
+      if (sig) {
+        if (seenPendingSignatures.has(sig)) {
+          return; // Skip duplicate pending application
+        }
+        seenPendingSignatures.add(sig);
+      }
+    }
+    merged.push(m);
+  });
+
   set({ members: merged });
   saveStoredOrgData({ members: merged });
 };

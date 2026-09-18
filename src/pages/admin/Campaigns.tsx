@@ -100,8 +100,9 @@ export function AdminCampaigns() {
   };
 
   const filteredCampaigns = campaigns.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          c.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (c.name || '').toLowerCase().includes(term) ||
+                          (c.description || '').toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

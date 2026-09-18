@@ -91,8 +91,9 @@ export function AdminContent() {
   };
 
   const filteredNews = news.filter(n => {
-    const matchesSearch = n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          n.excerpt.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (n.title || '').toLowerCase().includes(term) ||
+                          (n.excerpt || '').toLowerCase().includes(term);
     const matchesCat = categoryFilter === 'All' || n.category === categoryFilter;
     return matchesSearch && matchesCat;
   });

@@ -89,11 +89,12 @@ export function AdminEvents() {
     setShowModal(false);
   };
 
-  const filteredEvents = events.filter(e => 
-    e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.category && e.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredEvents = events.filter(e => {
+    const term = searchTerm.toLowerCase();
+    return (e.title || '').toLowerCase().includes(term) ||
+           (e.location || '').toLowerCase().includes(term) ||
+           (e.category ? e.category.toLowerCase().includes(term) : false);
+  });
 
   return (
     <div className="space-y-6">

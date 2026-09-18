@@ -89,11 +89,12 @@ export function AdminTransparency() {
     setEditingDoc(null);
   };
 
-  const filteredDocs = documents.filter(d => 
-    d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.year.includes(searchTerm)
-  );
+  const filteredDocs = documents.filter(d => {
+    const term = searchTerm.toLowerCase();
+    return (d.title || '').toLowerCase().includes(term) ||
+           (d.category || '').toLowerCase().includes(term) ||
+           (d.year ? String(d.year).includes(term) : false);
+  });
 
   return (
     <div className="space-y-6">

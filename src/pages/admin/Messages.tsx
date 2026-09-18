@@ -18,10 +18,11 @@ export function AdminMessages() {
   });
 
   const filteredMessages = messages.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          m.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          m.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          m.message.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (m.name || '').toLowerCase().includes(term) ||
+                          (m.email || '').toLowerCase().includes(term) ||
+                          (m.subject || '').toLowerCase().includes(term) ||
+                          (m.message || '').toLowerCase().includes(term);
     const matchesUnread = !filterUnread || !m.isRead;
     return matchesSearch && matchesUnread;
   });

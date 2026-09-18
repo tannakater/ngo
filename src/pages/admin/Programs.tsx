@@ -98,9 +98,10 @@ export function AdminPrograms() {
   };
 
   const filteredProjects = projects.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          p.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (p.title || '').toLowerCase().includes(term) ||
+                          (p.location || '').toLowerCase().includes(term) ||
+                          (p.description || '').toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
