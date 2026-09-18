@@ -46,21 +46,31 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   const sanitizeAuthError = (err: any, fallback: string): string => {
     if (!err) return fallback;
-    const msg = String(err.message || err.code || err || '').toLowerCase();
+    const msg = String(err.message || err.code || err || '').trim();
+    const lower = msg.toLowerCase();
     
-    if (msg.includes('popup-closed') || msg.includes('cancelled') || msg.includes('canceled')) {
+    if (lower.includes('popup-closed') || lower.includes('cancelled') || lower.includes('canceled')) {
       return 'Sign-in was cancelled.';
     }
-    if (msg.includes('network') || msg.includes('offline') || msg.includes('timeout')) {
-      return 'Network connection issue. Please check your internet and try again.';
+    if (lower.includes('network') || lower.includes('offline') || lower.includes('timeout')) {
+      return 'Network connection issue. Please check your internet connection and try again.';
     }
-    if (msg.includes('privilege') || msg.includes('denied') || msg.includes('unauthorized') || msg.includes('role')) {
-      return 'Access denied. This account does not have administrative privileges.';
+    if (lower.includes('access denied') || lower.includes('privilege') || lower.includes('unauthorized') || lower.includes('system users')) {
+      return msg.length > 20 ? msg : 'Access denied. This account does not have administrative privileges.';
     }
-    if (msg.includes('password') || msg.includes('email') || msg.includes('credential') || msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid') || msg.includes('auth')) {
-      return 'Invalid email or password. Please try again.';
+    if (lower.includes('password must be at least')) {
+      return msg;
     }
-    return 'Invalid email or password. Please try again.';
+    if (lower.includes('wrong-password') || lower.includes('invalid-credential') || lower.includes('incorrect password')) {
+      return 'Incorrect password. Please try again.';
+    }
+    if (lower.includes('user-not-found')) {
+      return 'Account not found. Please verify your email or contact the administrator.';
+    }
+    if (msg.length > 5 && !msg.startsWith('auth/')) {
+      return msg;
+    }
+    return fallback;
   };
 
   const handleGoogleLogin = async () => {

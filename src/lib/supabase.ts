@@ -166,6 +166,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 9. System & Admin Users
+CREATE TABLE IF NOT EXISTS web_users (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  email TEXT UNIQUE,
+  role TEXT DEFAULT 'admin',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- Enable Row Level Security (RLS) and allow public anonymous read & inserts
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
@@ -175,6 +184,7 @@ ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE web_users ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read access on all tables" ON organizations FOR SELECT USING (true);
 CREATE POLICY "Allow public write on organizations" ON organizations FOR ALL USING (true);
@@ -193,4 +203,6 @@ CREATE POLICY "Allow public all on projects" ON projects FOR ALL USING (true);
 CREATE POLICY "Allow public all on messages" ON messages FOR ALL USING (true);
 
 CREATE POLICY "Allow public all on audit_logs" ON audit_logs FOR ALL USING (true);
+
+CREATE POLICY "Allow public all on web_users" ON web_users FOR ALL USING (true);
 `;

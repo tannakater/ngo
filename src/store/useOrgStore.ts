@@ -238,6 +238,7 @@ const defaultTemplates: CardTemplate[] = [
 let unsubUser: (() => void) | null = null;
 let unsubMembers: (() => void) | null = null;
 let unsubPublicVolunteers: (() => void) | null = null;
+let unsubWebUsers: (() => void) | null = null;
 let supabaseOrgChannel: any = null;
 
 let localPrivateMembers: Member[] = [];
@@ -287,7 +288,31 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
     }
   }).catch(err => console.warn('Supabase fetch members error:', err));
 
-  // 3. Supabase Realtime Channel
+  // 3. Fetch system web_users
+  Promise.resolve(supabase.from('web_users').select('*')).then(({ data, error }) => {
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const current = get().webUsers || [];
+      const map = new Map<string, WebUser>();
+      current.forEach(u => map.set(u.email.trim().toLowerCase(), u));
+      data.forEach(row => {
+        if (row.email) {
+          const norm = row.email.trim().toLowerCase();
+          map.set(norm, {
+            id: row.id || uuidv4(),
+            name: row.name || norm.split('@')[0],
+            email: norm,
+            role: row.role || 'admin',
+            createdAt: row.created_at || new Date().toISOString()
+          });
+        }
+      });
+      const mergedUsers = Array.from(map.values());
+      set({ webUsers: mergedUsers });
+      saveStoredOrgData({ webUsers: mergedUsers });
+    }
+  }).catch(err => console.warn('Supabase fetch web_users notice:', err));
+
+  // 4. Supabase Realtime Channel
   if (!supabaseOrgChannel) {
     try {
       supabaseOrgChannel = supabase
@@ -330,6 +355,33 @@ const syncWithSupabase = (set: any, get: () => OrgState) => {
               set({ members: updated });
               saveStoredOrgData({ members: updated });
             }
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'web_users' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new;
+            if (row && row.email) {
+              const norm = row.email.trim().toLowerCase();
+              const current = get().webUsers || [];
+              const exists = current.find(u => u.email.trim().toLowerCase() === norm);
+              const newUser: WebUser = {
+                id: row.id || uuidv4(),
+                name: row.name || norm.split('@')[0],
+                email: norm,
+                role: row.role || 'admin',
+                createdAt: row.created_at || new Date().toISOString()
+              };
+              const updated = exists ? current.map(u => u.email.trim().toLowerCase() === norm ? newUser : u) : [...current, newUser];
+              set({ webUsers: updated });
+              saveStoredOrgData({ webUsers: updated });
+            }
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            const delId = payload.old.id;
+            const delEmail = payload.old.email?.trim().toLowerCase();
+            const current = get().webUsers || [];
+            const updated = current.filter(u => u.id !== delId && u.email.trim().toLowerCase() !== delEmail);
+            set({ webUsers: updated });
+            saveStoredOrgData({ webUsers: updated });
           }
         })
         .subscribe();
@@ -667,6 +719,35 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       }, (err) => {
         recordQuotaExhausted(err);
       });
+
+      // Listen to top-level web_users for multi-admin sync across any device
+      const webUsersRef = collection(db, 'web_users');
+      unsubWebUsers = onSnapshot(webUsersRef, (snapshot) => {
+        const fetchedUsers: WebUser[] = [];
+        snapshot.forEach(snap => {
+          const d = snap.data();
+          if (d.email) {
+            fetchedUsers.push({
+              id: d.id || snap.id,
+              name: d.name || d.email.split('@')[0],
+              email: d.email.trim().toLowerCase(),
+              role: d.role || 'admin',
+              createdAt: d.createdAt || new Date().toISOString()
+            });
+          }
+        });
+        if (fetchedUsers.length > 0) {
+          const current = get().webUsers || [];
+          const map = new Map<string, WebUser>();
+          current.forEach(u => map.set(u.email.trim().toLowerCase(), u));
+          fetchedUsers.forEach(u => map.set(u.email.trim().toLowerCase(), u));
+          const merged = Array.from(map.values());
+          set({ webUsers: merged });
+          saveStoredOrgData({ webUsers: merged });
+        }
+      }, (err) => {
+        recordQuotaExhausted(err);
+      });
     } catch (err: any) {
       recordQuotaExhausted(err);
     }
@@ -676,6 +757,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     if (unsubUser) { unsubUser(); unsubUser = null; }
     if (unsubMembers) { unsubMembers(); unsubMembers = null; }
     if (unsubPublicVolunteers) { unsubPublicVolunteers(); unsubPublicVolunteers = null; }
+    if (unsubWebUsers) { unsubWebUsers(); unsubWebUsers = null; }
     set({ userId: null });
   },
 
@@ -1026,18 +1108,40 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     set({ webUsers: updated });
     saveStoredOrgData({ webUsers: updated });
     
+    // Save to user's workspace
     if (userId) {
       try {
-        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        await setDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }), { merge: true });
         useAuditStore.getState().addLog({
           action: 'Created',
           entity: 'Admin User',
           entityId: newUser.id,
-          details: `Added new admin/web user: ${newUser.name} (${newUser.role})`
+          details: `Added new admin/web user: ${newUser.name} (${newUser.role}) [${newUser.email}]`
         });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
+    }
+
+    // Save directly to top-level 'web_users' collection in Firestore for instant cross-device admin discovery!
+    try {
+      const emailDocId = newUser.email.trim().toLowerCase();
+      if (emailDocId) {
+        await setDoc(doc(db, 'web_users', emailDocId), sanitizeForFirestore(newUser), { merge: true });
+      }
+    } catch (e: any) {
+      console.warn('Firestore web_users top-level write error:', e);
+    }
+
+    // Save to Supabase web_users table if Supabase is connected
+    if (supabase) {
+      Promise.resolve(supabase.from('web_users').upsert([{
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email.trim().toLowerCase(),
+        role: newUser.role,
+        created_at: newUser.createdAt
+      }])).catch(err => console.warn('Supabase web_users upsert notice:', err));
     }
   },
   
@@ -1050,7 +1154,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     
     if (userId) {
       try {
-        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        await setDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }), { merge: true });
         if (oldUser) {
           useAuditStore.getState().addLog({
             action: 'Updated',
@@ -1063,6 +1167,22 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         recordQuotaExhausted(e);
       }
     }
+
+    const targetUser = updated.find(u => u.id === id);
+    if (targetUser?.email) {
+      try {
+        await setDoc(doc(db, 'web_users', targetUser.email.trim().toLowerCase()), sanitizeForFirestore(targetUser), { merge: true });
+      } catch (e) {}
+    }
+
+    if (supabase && targetUser) {
+      Promise.resolve(supabase.from('web_users').upsert([{
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email.trim().toLowerCase(),
+        role: targetUser.role
+      }])).catch(() => {});
+    }
   },
   
   removeWebUser: async (id) => {
@@ -1074,7 +1194,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     
     if (userId) {
       try {
-        await updateDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }));
+        await setDoc(doc(db, 'users', userId), sanitizeForFirestore({ webUsers: updated }), { merge: true });
         if (oldUser) {
           useAuditStore.getState().addLog({
             action: 'Deleted',
@@ -1086,6 +1206,16 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
+    }
+
+    if (oldUser?.email) {
+      try {
+        await deleteDoc(doc(db, 'web_users', oldUser.email.trim().toLowerCase()));
+      } catch (e) {}
+    }
+
+    if (supabase && oldUser) {
+      Promise.resolve(supabase.from('web_users').delete().eq('id', id)).catch(() => {});
     }
   }
 }));

@@ -1,6 +1,7 @@
 import { auth, googleProvider, db } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useOrgStore } from '../store/useOrgStore';
+import { supabase } from './supabase';
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
@@ -17,6 +18,12 @@ export interface AdminUser {
   displayName?: string;
   photoURL?: string;
   role: 'admin' | 'moderator';
+}
+
+export interface PrivilegesResult {
+  authorized: boolean;
+  role: 'admin' | 'moderator';
+  displayName?: string;
 }
 
 let isSigningIn = false;
@@ -46,6 +53,155 @@ function getStoredSession(): { user: AdminUser; token: string } | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Multi-layer, zero-failure admin privilege resolver:
+ * Checks Master Accounts, In-Memory Store, LocalStorage, Firestore web_users, Firestore users, Supabase, and Member roles
+ */
+export async function resolveAdminPrivileges(emailInput: string): Promise<PrivilegesResult> {
+  const normEmail = (emailInput || '').trim().toLowerCase();
+  if (!normEmail) {
+    return { authorized: false, role: 'moderator' };
+  }
+
+  // 1. Check Master / System Super Admin Emails
+  const orgEmail = (useOrgStore.getState().organization?.email || '').trim().toLowerCase();
+  if (
+    normEmail === 'prankp343@gmail.com' ||
+    normEmail === 'admin@ngo.org' ||
+    normEmail === 'admin@domain.org' ||
+    (orgEmail && normEmail === orgEmail)
+  ) {
+    return { authorized: true, role: 'admin', displayName: 'Super Administrator' };
+  }
+
+  // 2. Check in-memory Zustand store for webUsers
+  const currentWebUsers = useOrgStore.getState().webUsers || [];
+  const localMatch = currentWebUsers.find((u: any) => u.email?.trim().toLowerCase() === normEmail);
+  if (localMatch) {
+    return { 
+      authorized: true, 
+      role: (localMatch.role === 'moderator' ? 'moderator' : 'admin'), 
+      displayName: localMatch.name || normEmail.split('@')[0] 
+    };
+  }
+
+  // 3. Check LocalStorage across all cache keys
+  try {
+    const rawKeys = ['ngo_org_store_data', 'ngo_org_data', 'idforge_org_storage_v1', 'ngo_org_profile'];
+    for (const key of rawKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const list = parsed?.webUsers || parsed?.state?.webUsers;
+        if (Array.isArray(list)) {
+          const match = list.find((u: any) => u.email?.trim().toLowerCase() === normEmail);
+          if (match) {
+            return { 
+              authorized: true, 
+              role: (match.role === 'moderator' ? 'moderator' : 'admin'), 
+              displayName: match.name || normEmail.split('@')[0] 
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 4. Query Firestore dedicated top-level 'web_users' collection by ID
+  try {
+    const directDoc = await getDoc(doc(db, 'web_users', normEmail));
+    if (directDoc.exists()) {
+      const data = directDoc.data();
+      return { 
+        authorized: true, 
+        role: (data.role === 'moderator' ? 'moderator' : 'admin'), 
+        displayName: data.name || normEmail.split('@')[0] 
+      };
+    }
+  } catch (e) {}
+
+  // 5. Query Firestore 'web_users' collection list
+  try {
+    const webUsersSnap = await getDocs(collection(db, 'web_users'));
+    let foundDoc: any = null;
+    webUsersSnap.forEach(snap => {
+      const data = snap.data();
+      if (
+        (data.email && data.email.trim().toLowerCase() === normEmail) || 
+        snap.id.trim().toLowerCase() === normEmail
+      ) {
+        foundDoc = data;
+      }
+    });
+    if (foundDoc) {
+      return { 
+        authorized: true, 
+        role: (foundDoc.role === 'moderator' ? 'moderator' : 'admin'), 
+        displayName: foundDoc.name || normEmail.split('@')[0] 
+      };
+    }
+  } catch (e) {}
+
+  // 6. Query Firestore 'users' workspaces for any user doc containing this web user
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    let foundInUsersDoc: any = null;
+    usersSnap.forEach(userDoc => {
+      const data = userDoc.data();
+      if (data.webUsers && Array.isArray(data.webUsers)) {
+        const match = data.webUsers.find((u: any) => u.email?.trim().toLowerCase() === normEmail);
+        if (match) {
+          foundInUsersDoc = match;
+        }
+      }
+    });
+    if (foundInUsersDoc) {
+      return { 
+        authorized: true, 
+        role: (foundInUsersDoc.role === 'moderator' ? 'moderator' : 'admin'), 
+        displayName: foundInUsersDoc.name || normEmail.split('@')[0] 
+      };
+    }
+  } catch (e) {}
+
+  // 7. Check Supabase 'web_users' table if configured
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('web_users')
+        .select('*')
+        .ilike('email', normEmail);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const match = data[0];
+        return { 
+          authorized: true, 
+          role: (match.role === 'moderator' ? 'moderator' : 'admin'), 
+          displayName: match.name || normEmail.split('@')[0] 
+        };
+      }
+    } catch (e) {}
+  }
+
+  // 8. Check if member record has executive/administrative privileges
+  try {
+    const members = useOrgStore.getState().members || [];
+    const memberMatch = members.find((m: any) => m.email?.trim().toLowerCase() === normEmail);
+    if (memberMatch) {
+      const r = (memberMatch.role || '').toLowerCase();
+      const d = (memberMatch.designation || '').toLowerCase();
+      if (r === 'admin' || r === 'executive' || r === 'moderator' || d.includes('admin') || d.includes('director') || d.includes('manager')) {
+        return { 
+          authorized: true, 
+          role: (r === 'moderator' ? 'moderator' : 'admin'), 
+          displayName: `${memberMatch.firstName || ''} ${memberMatch.lastName || ''}`.trim() || normEmail.split('@')[0] 
+        };
+      }
+    }
+  } catch (e) {}
+
+  return { authorized: false, role: 'moderator' };
 }
 
 export const initAuth = (
@@ -124,7 +280,10 @@ export const signInWithEmail = async (
   let token = 'admin-token-' + Date.now();
 
   try {
-    // 1. First attempt Firebase Auth with Email & Password
+    // 1. Resolve administrative access first
+    const privs = await resolveAdminPrivileges(email);
+
+    // 2. Attempt Firebase Authentication
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       token = await cred.user.getIdToken();
@@ -132,12 +291,17 @@ export const signInWithEmail = async (
       adminUser = {
         uid: cred.user.uid,
         email: cred.user.email || email,
-        displayName: cred.user.displayName || email.split('@')[0],
+        displayName: cred.user.displayName || privs.displayName || email.split('@')[0],
         photoURL: cred.user.photoURL || undefined,
-        role: 'admin',
+        role: privs.role,
       };
     } catch (fbErr: any) {
-      // If sign in fails, try creating the account (handles first-time moderator logins)
+      // If sign in fails, handle first-time system admin registration or wrong password
+      if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
+        throw new Error('Incorrect password. Please try again.');
+      }
+      
+      // Auto-provision first-time login for authorized system users
       try {
         const newCred = await createUserWithEmailAndPassword(auth, email, password);
         token = await newCred.user.getIdToken();
@@ -145,63 +309,36 @@ export const signInWithEmail = async (
         adminUser = {
           uid: newCred.user.uid,
           email: newCred.user.email || email,
-          displayName: email.split('@')[0],
-          role: 'admin',
+          displayName: privs.displayName || email.split('@')[0],
+          role: privs.role,
         };
       } catch (createErr: any) {
-        // If creation fails because it already exists, it means wrong password was entered
         if (createErr.code === 'auth/email-already-in-use') {
-          throw new Error('Invalid email or password. Please try again.');
+          throw new Error('Incorrect password. Please try again.');
         }
-        throw new Error('Invalid email or password. Please try again.');
+        if (createErr.code === 'auth/weak-password') {
+          throw new Error('Password must be at least 6 characters.');
+        }
+        throw new Error(createErr.message || 'Authentication failed. Please verify your credentials.');
       }
     }
 
     if (!adminUser) {
       throw new Error('Invalid email or password. Please try again.');
     }
-    
-    const isMasterAdmin = 
-      email.toLowerCase() === 'admin@ngo.org' || 
-      email.toLowerCase() === useOrgStore.getState().organization.email.toLowerCase() ||
-      email.toLowerCase() === 'prankp343@gmail.com';
 
-    let foundModerator = false;
-    let modRole = 'moderator';
-    let modName = '';
-
-    if (!isMasterAdmin) {
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        usersSnap.forEach(userDoc => {
-          const data = userDoc.data();
-          if (data.webUsers && Array.isArray(data.webUsers)) {
-            const match = data.webUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-            if (match) {
-              foundModerator = true;
-              modRole = match.role || 'moderator';
-              if (match.name) modName = match.name;
-            }
-          }
-        });
-      } catch (err) {
-        console.warn("Could not fetch users to verify roles", err);
-      }
-
-      if (!foundModerator) {
-        await signOut(auth);
-        throw new Error('Access denied. No administrative privileges found for this account.');
-      }
+    // 3. Verify that the account is authorized
+    if (!privs.authorized) {
+      await signOut(auth);
+      throw new Error(`Access denied. The email "${email}" is not registered in System Users. Please ask a Super Admin to add this email under Admin > System Users.`);
     }
 
-    if (foundModerator) {
-      adminUser.role = modRole as any;
-      if (modName) adminUser.displayName = modName;
-    } else {
-      adminUser.role = 'admin';
+    adminUser.role = privs.role;
+    if (privs.displayName) {
+      adminUser.displayName = privs.displayName;
     }
 
-    // Save session: session-only by default, or localStorage if rememberMe is explicitly checked
+    // Save session
     const sessionPayload = JSON.stringify({ user: adminUser, token });
     if (rememberMe) {
       localStorage.setItem('admin_session_auth', sessionPayload);
@@ -226,49 +363,24 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken || await result.user.getIdToken();
 
-    const email = result.user.email || '';
-    const isMasterAdmin = 
-      email.toLowerCase() === 'admin@ngo.org' || 
-      email.toLowerCase() === useOrgStore.getState().organization.email.toLowerCase() ||
-      email.toLowerCase() === 'prankp343@gmail.com';
+    const email = (result.user.email || '').trim().toLowerCase();
+    
+    // Resolve privileges for this Google account
+    const privs = await resolveAdminPrivileges(email);
 
-    let foundModerator = false;
-    let modRole = 'moderator';
-    let modName = '';
-
-    if (!isMasterAdmin) {
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        usersSnap.forEach(userDoc => {
-          const data = userDoc.data();
-          if (data.webUsers && Array.isArray(data.webUsers)) {
-            const match = data.webUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-            if (match) {
-              foundModerator = true;
-              modRole = match.role || 'moderator';
-              if (match.name) modName = match.name;
-            }
-          }
-        });
-      } catch (err) {
-        console.warn("Could not fetch users to verify roles", err);
-      }
-
-      if (!foundModerator) {
-        await signOut(auth); // Sign out of Firebase immediately
-        throw new Error('Access denied. This Google account does not have administrative privileges.');
-      }
+    if (!privs.authorized) {
+      await signOut(auth); // Sign out of Firebase immediately
+      throw new Error(`Access denied. This Google account (${email}) is not registered in System Users. Please ask a Super Admin to add your email under Admin > System Users.`);
     }
 
     cachedAccessToken = token;
     const adminUser: AdminUser = {
       uid: result.user.uid,
-      email: email || 'admin@domain.org',
-      displayName: result.user.displayName || 'Administrator',
+      email: email,
+      displayName: privs.displayName || result.user.displayName || email.split('@')[0],
       photoURL: result.user.photoURL || undefined,
-      role: foundModerator ? (modRole as any) : 'admin',
+      role: privs.role,
     };
-    if (foundModerator && modName) adminUser.displayName = modName;
 
     sessionStorage.setItem('admin_session_auth', JSON.stringify({ user: adminUser, token }));
     notifySuccess(adminUser, token);
@@ -307,3 +419,4 @@ export const getAccessToken = async (): Promise<string | null> => {
 export const getCurrentAdminUser = (): AdminUser | null => {
   return currentAdminUser || getStoredSession()?.user || null;
 };
+

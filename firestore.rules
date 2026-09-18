@@ -13,6 +13,9 @@ service cloud.firestore {
         allow read, write: if true;
       }
     }
+    match /web_users/{id} {
+      allow read, write: if true;
+    }
 
     // Top-level collections for Campaigns, Projects, Volunteers, Events, News, Donations, Messages, Documents, and Stats
     match /campaigns/{id} {
