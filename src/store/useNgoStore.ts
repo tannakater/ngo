@@ -1147,30 +1147,20 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
               validatedItems = filterNonDeleted(rawItems);
           }
 
-          const currentItems = (get()[stateKey] as any[]) || [];
-          const itemMap = new Map<string, any>();
-
-          // 1. Preserve active in-memory / local items (excluding tombstones)
-          currentItems.forEach(item => {
-            if (item && item.id && !isIdDeleted(item.id)) {
-              itemMap.set(item.id, item);
-            }
-          });
-
-          // 2. Overlay remote validated snapshot items
-          validatedItems.forEach(item => {
-            if (item && item.id && !isIdDeleted(item.id)) {
-              const existing = itemMap.get(item.id);
-              itemMap.set(item.id, { ...existing, ...item });
-            }
-          });
-
-          const mergedItems = Array.from(itemMap.values()).filter(item => !isIdDeleted(item.id));
-
-          // Only update if there are items to show or we had no prior items
-          if (mergedItems.length > 0 || currentItems.length === 0) {
-            set({ [stateKey]: mergedItems } as any);
-            saveStoredNgoData({ [stateKey]: mergedItems } as any);
+          if (snapshot.empty) {
+            // If the cloud collection is empty, seed it to Firestore so other devices receive it
+            const initialItems = (get()[stateKey] as any[]) || [];
+            initialItems.forEach(async item => {
+              if (item && item.id) {
+                try {
+                  await setDoc(doc(db, colName, item.id), sanitizeForFirestore(item), { merge: true });
+                } catch (e) {}
+              }
+            });
+          } else {
+            // Authoritative remote dataset from Firestore across all devices
+            set({ [stateKey]: validatedItems } as any);
+            saveStoredNgoData({ [stateKey]: validatedItems } as any);
           }
         }, (err) => {
           if (recordQuotaExhausted(err)) {
@@ -1277,7 +1267,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const proj = updated.find(p => p.id === id);
         if (proj) {
-          await updateDoc(doc(db, 'projects', id), sanitizeForFirestore(proj) as any);
+          await setDoc(doc(db, 'projects', id), sanitizeForFirestore(proj) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
@@ -1328,7 +1318,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
 
     if (!isQuotaExhausted()) {
       try {
-        await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(validated));
+        await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(validated), { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1355,7 +1345,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const camp = updated.find(c => c.id === id);
         if (camp) {
-          await updateDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp) as any);
+          await setDoc(doc(db, 'campaigns', id), sanitizeForFirestore(camp) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
@@ -1526,7 +1516,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const ev = updated.find(e => e.id === id);
         if (ev) {
-          await updateDoc(doc(db, 'events', id), sanitizeForFirestore(ev) as any);
+          await setDoc(doc(db, 'events', id), sanitizeForFirestore(ev) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
@@ -1566,7 +1556,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
 
     if (!isQuotaExhausted()) {
       try {
-        await setDoc(doc(db, 'news', id), sanitizeForFirestore(validated));
+        await setDoc(doc(db, 'news', id), sanitizeForFirestore(validated), { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1581,7 +1571,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const item = updated.find(n => n.id === id);
         if (item) {
-          await updateDoc(doc(db, 'news', id), sanitizeForFirestore(item) as any);
+          await setDoc(doc(db, 'news', id), sanitizeForFirestore(item) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
@@ -1697,7 +1687,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const don = updated.find(d => d.id === id);
         if (don) {
-          await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(don) as any);
+          await setDoc(doc(db, 'donations', id), sanitizeForFirestore(don) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
@@ -1753,10 +1743,10 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       
       if (!isQuotaExhausted()) {
         try {
-          await updateDoc(doc(db, 'campaigns', campaign.id), {
+          await setDoc(doc(db, 'campaigns', campaign.id), {
             currentAmount: newCurrent,
             donorsCount: newDonors
-          });
+          }, { merge: true });
         } catch (e: any) {
           recordQuotaExhausted(e);
         }
@@ -1782,7 +1772,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
 
     if (!isQuotaExhausted()) {
       try {
-        await updateDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any);
+        await setDoc(doc(db, 'donations', id), sanitizeForFirestore(updatedDon) as any, { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1852,7 +1842,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
 
     if (!isQuotaExhausted()) {
       try {
-        await setDoc(doc(db, 'messages', id), sanitizeForFirestore(validated));
+        await setDoc(doc(db, 'messages', id), sanitizeForFirestore(validated), { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1865,7 +1855,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
     saveStoredNgoData({ messages: updated });
     if (!isQuotaExhausted()) {
       try {
-        await updateDoc(doc(db, 'messages', id), { isRead: true });
+        await setDoc(doc(db, 'messages', id), { isRead: true }, { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1913,7 +1903,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
 
     if (!isQuotaExhausted()) {
       try {
-        await setDoc(doc(db, 'documents', id), sanitizeForFirestore(validated));
+        await setDoc(doc(db, 'documents', id), sanitizeForFirestore(validated), { merge: true });
       } catch (e: any) {
         recordQuotaExhausted(e);
       }
@@ -1928,7 +1918,7 @@ export const useNgoStore = create<NgoState>((rawSet, get) => {
       try {
         const item = updated.find(d => d.id === id);
         if (item) {
-          await updateDoc(doc(db, 'documents', id), sanitizeForFirestore(item) as any);
+          await setDoc(doc(db, 'documents', id), sanitizeForFirestore(item) as any, { merge: true });
         }
       } catch (e: any) {
         recordQuotaExhausted(e);
