@@ -1,22 +1,14 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
 
-const firebaseConfig = {
-  projectId: "ngo-web-a7c3e",
-  appId: "1:109165857470:web:be6eb49980d3ed6c10acef",
-  apiKey: "AIzaSyDpngGJfJhp3iKJ3BvqO1odNZeAYCZeDpI",
-  authDomain: "ngo-web-a7c3e.firebaseapp.com",
-  storageBucket: "ngo-web-a7c3e.firebasestorage.app",
-  messagingSenderId: "109165857470",
-  measurementId: ""
-};
-
-export const app = initializeApp(firebaseConfig);
+// Initialize Firebase App singleton safely
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
-}, "ai-studio-idforge-b0237242-cdab-405b-8741-a1d7fee55089");
+
+// Initialize Cloud Firestore using standard database connection
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
-

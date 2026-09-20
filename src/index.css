@@ -3,6 +3,9 @@
 /* Modern Smooth Scrolling & Custom Scrollbars */
 html {
   scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Global scrollbars: sleek, thin, modern */
@@ -23,6 +26,7 @@ html {
 ::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -47,8 +51,60 @@ html {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: #334155;
   border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #475569;
 }
+
+/* High-performance hardware acceleration */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Interactive card elevation micro-interactions */
+.smooth-card {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.smooth-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+}
+
+/* Subtle glow pulse */
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(0.98);
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s ease-in-out infinite;
+}
+
+/* Shimmer animation for skeletons & highlights */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+

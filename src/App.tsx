@@ -6,6 +6,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { PublicLayout } from './components/public/PublicLayout';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ScrollToTop } from './components/common/ScrollToTop';
 
 // Public Pages
 import { Home } from './pages/public/Home';
@@ -38,6 +39,7 @@ import { AdminTransparency } from './pages/admin/Transparency';
 import { AdminSettings } from './pages/admin/Settings';
 import { SystemUsers } from './pages/admin/SystemUsers';
 import { AuditLogs } from './pages/admin/AuditLogs';
+import { SystemHealth } from './pages/admin/SystemHealth';
 
 export default function App() {
   const syncNgoWithUser = useNgoStore(state => state.syncNgoWithUser);
@@ -51,6 +53,7 @@ export default function App() {
   return (
     <ErrorBoundary fallbackTitle="Application Display Error">
       <Router>
+        <ScrollToTop />
         <Routes>
           {/* Public Website Routes */}
           <Route path="/login" element={<Navigate to="/admin" replace />} />
@@ -92,6 +95,7 @@ export default function App() {
             <Route path="transparency" element={<AdminTransparency />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="system-users" element={<SystemUsers />} />
+            <Route path="system-health" element={<SystemHealth />} />
           </Route>
           
           {/* Fallback */}

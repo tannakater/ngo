@@ -10,7 +10,7 @@ import { useOrgStore } from '../store/useOrgStore';
 import { APP_VERSION } from '../config/version';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '../utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return 'Recently';
@@ -133,9 +133,9 @@ export function Dashboard() {
   return (
     <motion.div 
       className="space-y-6 max-w-7xl mx-auto pb-10 w-full min-w-0"
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
     >
       {/* 1. Clean, Modern Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -159,6 +159,14 @@ export function Dashboard() {
 
         {/* Header Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/system-health"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all shadow-2xs"
+            title="View Real-Time System Health & Database Sync Status"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-600" />
+            <span>System Health</span>
+          </Link>
           <Link
             to="/admin/donations"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
@@ -187,28 +195,42 @@ export function Dashboard() {
       </div>
 
       {/* Instant Feedback Alert Toast */}
-      {approvalMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-emerald-950 shadow-xs animate-in fade-in duration-200">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <p className="text-xs sm:text-sm font-bold text-emerald-900 truncate">{approvalMessage}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setApprovalMessage(null)}
-            className="text-xs text-emerald-700 hover:text-emerald-950 font-bold px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer shrink-0 ml-2"
+      <AnimatePresence>
+        {approvalMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-emerald-950 shadow-xs"
           >
-            Dismiss
-          </button>
-        </div>
-      )}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-emerald-900 truncate">{approvalMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setApprovalMessage(null)}
+              className="text-xs text-emerald-700 hover:text-emerald-950 font-bold px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer shrink-0 ml-2"
+            >
+              Dismiss
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 2. 4 Core Key Metrics */}
+      {/* 2. 4 Core Key Metrics with subtle stagger */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Total Cleared Funds */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05 }}
+          whileHover={{ y: -2 }}
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Cleared Funds</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -222,10 +244,16 @@ export function Dashboard() {
             <CheckCircle2 className="w-3 h-3" />
             <span>Audited & Verified</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Metric 2: Total Donors */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.1 }}
+          whileHover={{ y: -2 }}
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Donors</span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -238,10 +266,16 @@ export function Dashboard() {
           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500">
             <span>{donations.length} total gifts logged</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Metric 3: Active Campaigns */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.15 }}
+          whileHover={{ y: -2 }}
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Active Causes</span>
             <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -254,10 +288,16 @@ export function Dashboard() {
           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500">
             <span>{projects.length} programs running</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Metric 4: Verified Team / Volunteers */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.2 }}
+          whileHover={{ y: -2 }}
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Field Team</span>
             <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
@@ -270,12 +310,16 @@ export function Dashboard() {
           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500">
             <span>{members.length} registered profiles</span>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* 3. Pending Action Alert Bar (Only shown if pending items exist) */}
       {(pendingDonations.length > 0 || pendingVolunteers.length > 0) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+        >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4" />
@@ -311,7 +355,7 @@ export function Dashboard() {
               </Link>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* 4. Streamlined 2-Column Workspace */}
@@ -442,7 +486,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Right Column (5 cols): Active Causes & Quick Actions */}
+        {/* Right Column (5 cols): Active Causes & Quick Tools */}
         <div className="lg:col-span-5 space-y-5">
           
           {/* Active Campaigns Card */}

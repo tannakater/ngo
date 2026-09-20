@@ -19,6 +19,7 @@ const routeTitles: Record<string, { title: string; category: string }> = {
   '/admin/messages': { title: 'Messages & Inquiries', category: 'Media' },
   '/admin/audit-logs': { title: 'Security & Audit Logs', category: 'System' },
   '/admin/system-users': { title: 'System Access & Roles', category: 'System' },
+  '/admin/system-health': { title: 'System Health & Sync', category: 'System' },
   '/admin/transparency': { title: 'Transparency & Governance', category: 'System' },
   '/admin/org-settings': { title: 'Organization Profile', category: 'System' },
   '/admin/settings': { title: 'Admin Settings', category: 'System' },
@@ -26,6 +27,7 @@ const routeTitles: Record<string, { title: string; category: string }> = {
 
 const searchablePages = [
   { name: 'Dashboard', path: '/admin', desc: 'System overview and impact stats' },
+  { name: 'System Health', path: '/admin/system-health', desc: 'Firebase & Supabase database sync monitoring' },
   { name: 'Donations & Approvals', path: '/admin/donations', desc: 'Verify donations and send receipts' },
   { name: 'Campaigns', path: '/admin/campaigns', desc: 'Manage live fundraising campaigns' },
   { name: 'Programs & Causes', path: '/admin/programs', desc: 'Track field projects and budgets' },
@@ -141,8 +143,19 @@ export function AdminTopbar({ setSidebarOpen }: { setSidebarOpen?: (open: boolea
 
       {/* Right Actions */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* System Health Status Indicator */}
+        <Link
+          to="/admin/system-health"
+          className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-bold transition shadow-2xs group"
+          title="System Health & Database Synchronization Status"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping group-hover:scale-110" />
+          <span className="hidden sm:inline">Systems Operational</span>
+          <span className="sm:hidden">Health</span>
+        </Link>
+
         {/* Version Badge */}
-        <div className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-mono font-bold tracking-wider shadow-2xs">
+        <div className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-[11px] sm:text-xs font-mono font-bold tracking-wider shadow-2xs">
           <span>{APP_VERSION}</span>
         </div>
 

@@ -79,9 +79,10 @@ export function AdminSidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen?: bo
     {
       title: 'Management & Files',
       items: [
+        { name: 'System Health', path: '/admin/system-health', icon: Activity },
         ...(isMasterAdmin ? [{ name: 'System Users', path: '/admin/system-users', icon: Shield }] : []),
         ...(isMasterAdmin ? [{ name: 'Audit Logs', path: '/admin/audit-logs', icon: ClipboardList }] : []),
-        { name: 'Transparency', path: '/admin/transparency', icon: Activity },
+        { name: 'Transparency', path: '/admin/transparency', icon: FileText },
         ...(isMasterAdmin ? [
           { name: 'Organization', path: '/admin/org-settings', icon: Building },
           { name: 'Settings', path: '/admin/settings', icon: Settings }
